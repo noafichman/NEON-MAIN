@@ -7,16 +7,21 @@ import EntityMarker from './entities/EntityMarker';
 import EntityInfo from './entities/EntityInfo';
 import EntityPanel from '../sidebar/EntityPanel';
 import { useMilitaryEntities } from '../../hooks/useMilitaryEntities';
+import { useMapShapes } from '../../hooks/useMapShapes';
 import { MilitaryEntity } from '../../types/entities';
-import { Search, Wifi, Bell, Menu, Settings, MessageSquare, Calendar, Clock, Video, Image, FileText } from 'lucide-react';
+import { MapShape, Position } from '../../types/shapes';
+import { Search, Wifi, Bell, Menu, Settings, MessageSquare, Calendar, Clock, Video, Image, FileText, PenTool } from 'lucide-react';
 import AlertPanel from '../alerts/AlertPanel';
 import LastAlertsPanel from '../alerts/LastAlertsPanel';
+import ShapesMenu from './shapes/ShapesMenu';
+import ShapeForm from './shapes/ShapeForm';
+import ShapeRenderer from './shapes/ShapeRenderer';
 
 // Default map settings
 const INITIAL_VIEW_STATE = {
-  longitude: 121.285,
-  latitude: 31.70,
-  zoom: 14
+  longitude: 120.50,
+  latitude: 33.50,
+  zoom: 13
 };
 
 interface MapContainerProps {
@@ -27,8 +32,14 @@ interface MapContainerProps {
 const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelVisible }) => {
   const mapRef = useRef<MapRef>(null);
   const { entities, alerts, dismissAlert } = useMilitaryEntities();
+  const { shapes, loading: shapesLoading, createShape, updateShape, deleteShape } = useMapShapes();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showLastAlerts, setShowLastAlerts] = useState(false);
+  const [showShapesMenu, setShowShapesMenu] = useState(false);
+  const [shapeType, setShapeType] = useState<string | null>(null);
+  const [shapeMenuPosition, setShapeMenuPosition] = useState({ x: 0, y: 0 });
+  const [previewShape, setPreviewShape] = useState<MapShape | null>(null);
+  const [editingShape, setEditingShape] = useState<MapShape | null>(null);
   
   // Update time every second
   useEffect(() => {
@@ -59,6 +70,9 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
   
   // Handler for map click
   const handleMapClick = useCallback((e: any) => {
+    // Don't handle map clicks if we're in shape creation mode
+    if (shapeType) return;
+    
     // Hide any open context menus
     hideMapContext();
     hideEntityContext();
@@ -74,10 +88,13 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         // lngLat: e.lngLat
       });
     }
-  }, [hideMapContext, hideEntityContext, showMapContext]);
+  }, [hideMapContext, hideEntityContext, showMapContext, shapeType]);
   
   // Handler for entity click
   const handleEntityClick = useCallback((entity: MilitaryEntity, e: React.MouseEvent) => {
+    // Don't handle entity clicks if we're in shape creation mode
+    if (shapeType) return;
+    
     e.stopPropagation();
     hideMapContext();
     
@@ -95,12 +112,67 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         entity
       });
     }
-  }, [hideMapContext, hideEntityContext, showEntityContext]);
+  }, [hideMapContext, hideEntityContext, showEntityContext, shapeType]);
   
   // Prevent default context menu
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
   }, []);
+
+  // Handle shapes button click
+  const handleShapesButtonClick = (e: React.MouseEvent) => {
+    const buttonRect = e.currentTarget.getBoundingClientRect();
+    setShapeMenuPosition({
+      x: buttonRect.left,
+      y: window.innerHeight - buttonRect.bottom + 10 // Position above the button
+    });
+    setShowShapesMenu(!showShapesMenu);
+  };
+  
+  // Handle shape type selection
+  const handleShapeSelect = (type: string) => {
+    setShapeType(type);
+    setShowShapesMenu(false);
+  };
+  
+  // Close shape form
+  const handleCloseShapeForm = () => {
+    setShapeType(null);
+  };
+
+  // Helper to get center point of any shape (copied from ShapeRenderer)
+  function getShapeCenter(shape: MapShape): Position {
+    switch (shape.type) {
+      case 'point':
+        return shape.position;
+      case 'circle':
+        return shape.center;
+      case 'rectangle': {
+        return {
+          latitude: (shape.bounds.northEast.latitude + shape.bounds.southWest.latitude) / 2,
+          longitude: (shape.bounds.northEast.longitude + shape.bounds.southWest.longitude) / 2
+        };
+      }
+      case 'polyline':
+      case 'polygon': {
+        const path = shape.path;
+        const sumLat = path.reduce((sum: number, point: Position) => sum + point.latitude, 0);
+        const sumLng = path.reduce((sum: number, point: Position) => sum + point.longitude, 0);
+        return {
+          latitude: sumLat / path.length,
+          longitude: sumLng / path.length
+        };
+      }
+      case 'arrow': {
+        return {
+          latitude: (shape.start.latitude + shape.end.latitude) / 2,
+          longitude: (shape.start.longitude + shape.end.longitude) / 2
+        };
+      }
+      default:
+        return { latitude: 0, longitude: 0 };
+    }
+  }
 
   return (
     <div className="h-full w-full relative" onContextMenu={handleContextMenu}>
@@ -152,6 +224,13 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
           <MessageSquare size={18} />
         </button>
         <div className="w-px h-6 bg-white/10"></div>
+        <button 
+          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors"
+          onClick={handleShapesButtonClick}
+          title="Add Map Shapes"
+        >
+          <PenTool size={18} />
+        </button>
         <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
           <Calendar size={18} />
         </button>
@@ -178,6 +257,15 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         onClick={handleMapClick}
         style={{ width: '100%', height: '100%' }}
       >
+        {/* Render map shapes */}
+        {!shapesLoading && (shapes.length > 0 || previewShape) && (
+          <ShapeRenderer 
+            shapes={previewShape ? [...shapes, previewShape] : shapes} 
+            onShapeDeleted={deleteShape} 
+            onShapeEdit={(shape: MapShape) => setEditingShape(shape)} 
+          />
+        )}
+        
         {/* Render all entities as markers */}
         {entities.map(entity => (
           <Marker
@@ -218,6 +306,17 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
             entity
           });
         }}
+        shapes={shapes}
+        onShapeEdit={setEditingShape}
+        onShapeDelete={deleteShape}
+        onShapeCenter={(shape) => {
+          const center = getShapeCenter(shape);
+          mapRef.current?.flyTo({
+            center: [center.longitude, center.latitude],
+            zoom: 15,
+            duration: 1500
+          });
+        }}
       />
       
       {/* Context Menus */}
@@ -242,6 +341,28 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         <EntityInfo 
           entity={selectedEntity}
           onClose={() => setSelectedEntity(null)}
+        />
+      )}
+      
+      {/* Shapes Menu */}
+      {showShapesMenu && (
+        <ShapesMenu
+          position={shapeMenuPosition}
+          onSelect={handleShapeSelect}
+          onClose={() => setShowShapesMenu(false)}
+        />
+      )}
+      
+      {/* Shape Form */}
+      {(shapeType || editingShape) && (
+        <ShapeForm
+          type={shapeType || (editingShape?.type || '')}
+          mapRef={mapRef}
+          onClose={() => { setShapeType(null); setEditingShape(null); setPreviewShape(null); }}
+          createShape={createShape}
+          updateShape={updateShape}
+          onPreviewShapeChange={setPreviewShape}
+          initialShape={editingShape || undefined}
         />
       )}
     </div>

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, Shield, Swords, Target, MoreVertical } from 'lucide-react';
+import { X, Shield, Swords, Target, MoreVertical, Shapes as ShapesIcon, MapPin, LineChart, Triangle, Square, Circle, ArrowRight } from 'lucide-react';
 import { Mission } from '../../types/entities';
 import mockMissions from '../../data/mockMissions';
 import { createSymbol } from '../../utils/symbolUtils';
+import ShapesPanel from './ShapesPanel';
 
 interface MilitaryEntity {
   id: string;
@@ -23,11 +24,15 @@ interface EntityPanelProps {
   onClose: () => void;
   onEntitySelect: (entity: MilitaryEntity) => void;
   onContextMenu: (entity: MilitaryEntity, event: React.MouseEvent) => void;
+  shapes?: any[];
+  onShapeEdit?: (shape: any) => void;
+  onShapeDelete?: (shapeId: string) => void;
+  onShapeCenter?: (shape: any) => void;
 }
 
-type TabType = 'blue' | 'red' | 'missions';
+type TabType = 'blue' | 'red' | 'missions' | 'shapes';
 
-const EntityPanel: React.FC<EntityPanelProps> = ({ entities, visible, onClose, onEntitySelect, onContextMenu }) => {
+const EntityPanel: React.FC<EntityPanelProps> = ({ entities, visible, onClose, onEntitySelect, onContextMenu, shapes = [], onShapeEdit, onShapeDelete, onShapeCenter }) => {
   const [activeTab, setActiveTab] = useState<TabType>('blue');
 
   const iliation = (sidc: string): 'friendly' | 'hostile' | 'unknown' => {
@@ -76,6 +81,15 @@ const EntityPanel: React.FC<EntityPanelProps> = ({ entities, visible, onClose, o
             title="Missions"
           >
             <Target size={16} />
+          </button>
+          <button
+            className={`p-2 flex items-center justify-center transition-colors ${
+              activeTab === 'shapes' ? 'bg-green-800/30 text-green-400 border-b-2 border-green-400' : 'text-gray-400 hover:bg-gray-800/30'
+            }`}
+            onClick={() => setActiveTab('shapes')}
+            title="Map Shapes"
+          >
+            <ShapesIcon size={16} />
           </button>
         </div>
         <div className="w-px h-6 bg-white/10 mx-2 self-center"></div>
@@ -158,6 +172,15 @@ const EntityPanel: React.FC<EntityPanelProps> = ({ entities, visible, onClose, o
             </div>
           ))}
         </div>
+      )}
+
+      {activeTab === 'shapes' && (
+        <ShapesPanel
+          shapes={shapes}
+          onShapeEdit={onShapeEdit}
+          onShapeDelete={onShapeDelete}
+          onShapeCenter={onShapeCenter}
+        />
       )}
     </div>
   );
