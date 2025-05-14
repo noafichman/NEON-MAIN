@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MilitaryEntity } from '../types/entities';
 
-// Use relative URL to ensure it works in all environments
-const API_URL = 'http://localhost:3001/api';
+// Dynamically determine API URL based on environment
+const API_URL = import.meta.env.PROD 
+  ? '/api' 
+  : 'http://localhost:3001/api';
+
 const POLLING_INTERVAL = 3000; // 3 seconds
 
 export interface AlertEntity extends MilitaryEntity {
