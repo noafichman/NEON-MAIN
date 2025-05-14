@@ -9,6 +9,7 @@ import EntityPanel from '../sidebar/EntityPanel';
 import { useMilitaryEntities } from '../../hooks/useMilitaryEntities';
 import { MilitaryEntity } from '../../types/entities';
 import { Search, Wifi, Bell, Menu, Settings, MessageSquare, Calendar, Clock, Video, Image, FileText } from 'lucide-react';
+import AlertPanel from '../alerts/AlertPanel';
 
 // Default map settings
 const INITIAL_VIEW_STATE = {
@@ -24,7 +25,7 @@ interface MapContainerProps {
 
 const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelVisible }) => {
   const mapRef = useRef<MapRef>(null);
-  const { entities } = useMilitaryEntities();
+  const { entities, alerts, dismissAlert } = useMilitaryEntities();
   const [currentTime, setCurrentTime] = useState(new Date());
   
   // Update time every second
@@ -112,11 +113,21 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         <div className="text-gray-400 font-medium text-sm">
           {currentTime.toLocaleTimeString()}
         </div>
-        <button className="text-gray-400 hover:text-white transition-colors relative">
+        <button 
+          className="text-gray-400 hover:text-white transition-colors relative"
+          title={`${alerts.length} new hostile entities`}
+        >
           <Bell size={16} />
-          <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+          {alerts.length > 0 && (
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+              <span className="text-[10px] font-medium text-white">{alerts.length}</span>
+            </div>
+          )}
         </button>
       </div>
+
+      {/* Alert Panel */}
+      <AlertPanel alerts={alerts} onDismiss={dismissAlert} />
 
       {/* Bottom Action Bar */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900/40 backdrop-blur-sm border border-gray-800/30 rounded-lg">

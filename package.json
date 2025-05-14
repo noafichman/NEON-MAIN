@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"node src/server/index.js\"",
     "build": "tsc && vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "start": "node dist/server/index.js",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
