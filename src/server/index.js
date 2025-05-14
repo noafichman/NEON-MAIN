@@ -53,7 +53,7 @@ app.get('/api/military-entities', async (req, res) => {
       console.log(sidc);
       return {
         id: entity.id,
-        name: entity.name,
+        name: entity.id,
         sidc: entity.sidc || sidc, // Use custom SIDC if entity.sidc is null
         position: {
           latitude: entity.x,
