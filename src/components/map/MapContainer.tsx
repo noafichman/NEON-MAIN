@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Map, { MapRef, Marker } from 'react-map-gl';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import MapContextMenu from './contextMenus/MapContextMenu';
@@ -8,6 +8,7 @@ import EntityInfo from './entities/EntityInfo';
 import EntityPanel from '../sidebar/EntityPanel';
 import { useMilitaryEntities } from '../../hooks/useMilitaryEntities';
 import { MilitaryEntity } from '../../types/entities';
+import { Search, Wifi, Bell, Menu, Settings, MessageSquare, Calendar, Clock, Video, Image, FileText } from 'lucide-react';
 
 // Default map settings
 const INITIAL_VIEW_STATE = {
@@ -24,6 +25,15 @@ interface MapContainerProps {
 const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelVisible }) => {
   const mapRef = useRef<MapRef>(null);
   const { entities } = useMilitaryEntities();
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
   
   // State for selected entity and info display
   const [selectedEntity, setSelectedEntity] = useState<MilitaryEntity | null>(null);
@@ -91,6 +101,55 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
 
   return (
     <div className="h-full w-full relative" onContextMenu={handleContextMenu}>
+      {/* Status Header */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-4 px-4 py-2 bg-gray-900/40 backdrop-blur-sm border border-gray-800/30 rounded-lg">
+        <button className="text-gray-400 hover:text-white transition-colors">
+          <Search size={16} />
+        </button>
+        <button className="text-green-400 hover:text-green-300 transition-colors">
+          <Wifi size={16} />
+        </button>
+        <div className="text-gray-400 font-medium text-sm">
+          {currentTime.toLocaleTimeString()}
+        </div>
+        <button className="text-gray-400 hover:text-white transition-colors relative">
+          <Bell size={16} />
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+        </button>
+      </div>
+
+      {/* Bottom Action Bar */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900/40 backdrop-blur-sm border border-gray-800/30 rounded-lg">
+        <button 
+          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors"
+          onClick={() => setIsPanelVisible(!isPanelVisible)}
+        >
+          <Menu size={18} />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+          <Settings size={18} />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+          <MessageSquare size={18} />
+        </button>
+        <div className="w-px h-6 bg-white/10"></div>
+        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+          <Calendar size={18} />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+          <Clock size={18} />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+          <Video size={18} />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+          <Image size={18} />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+          <FileText size={18} />
+        </button>
+      </div>
+
       <Map
         ref={mapRef}
         mapboxAccessToken="pk.eyJ1IjoiYW10cnRtIiwiYSI6ImNsd2wzeWNlcDFnc2gycXBmaWoweGx5a3oifQ.thuFRVzuZiyk9xuPI173PA"
@@ -130,6 +189,16 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
             duration: 2000
           });
         }}
+        onContextMenu={(entity, e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setSelectedEntity(entity);
+          showEntityContext({
+            x: e.clientX - 20, // Offset left to align with the menu icon
+            y: e.clientY - 140, // Increased offset to account for floating header
+            entity
+          });
+        }}
       />
       
       {/* Context Menus */}
@@ -142,9 +211,10 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
       
       {entityContextVisible && (
         <EntityContextMenu 
-          position={entityContextPosition}
+          position={entityContextPosition} 
           entity={selectedEntity}
           onClose={hideEntityContext}
+          className="z-30"
         />
       )}
       

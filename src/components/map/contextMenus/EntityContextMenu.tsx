@@ -7,9 +7,10 @@ interface EntityContextMenuProps {
   position: ContextMenuPosition;
   entity: MilitaryEntity | null;
   onClose: () => void;
+  className?: string;
 }
 
-const EntityContextMenu: React.FC<EntityContextMenuProps> = ({ position, entity, onClose }) => {
+const EntityContextMenu: React.FC<EntityContextMenuProps> = ({ position, entity, onClose, className = '' }) => {
   // Close the menu when clicking outside
   React.useEffect(() => {
     const handleClickOutside = () => onClose();
@@ -21,7 +22,7 @@ const EntityContextMenu: React.FC<EntityContextMenuProps> = ({ position, entity,
 
   return (
     <div 
-      className="absolute z-10 bg-gray-900 border border-gray-700 rounded-lg shadow-lg text-gray-200 overflow-hidden"
+      className={`absolute z-50 bg-gray-900 border border-gray-700 rounded-lg shadow-lg text-gray-200 overflow-visible ${className}`}
       style={{ 
         left: position.x, 
         top: position.y,
@@ -29,7 +30,7 @@ const EntityContextMenu: React.FC<EntityContextMenuProps> = ({ position, entity,
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="p-2 bg-gray-800 border-b border-gray-700 font-medium">
+      <div className="absolute -top-10 right-0 px-3 py-1.5 bg-gray-900/80 backdrop-blur-sm border border-gray-700 rounded-lg text-sm whitespace-nowrap">
         <span className="text-pink-400">{entity.sidc.substring(0, 6)}</span> {entity.name}
       </div>
       

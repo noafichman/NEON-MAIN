@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Shield, Swords, Target } from 'lucide-react';
+import { X, Shield, Swords, Target, MoreVertical } from 'lucide-react';
 import { Mission } from '../../types/entities';
 import mockMissions from '../../data/mockMissions';
 import { createSymbol } from '../../utils/symbolUtils';
@@ -22,11 +22,12 @@ interface EntityPanelProps {
   visible: boolean;
   onClose: () => void;
   onEntitySelect: (entity: MilitaryEntity) => void;
+  onContextMenu: (entity: MilitaryEntity, event: React.MouseEvent) => void;
 }
 
 type TabType = 'blue' | 'red' | 'missions';
 
-const EntityPanel: React.FC<EntityPanelProps> = ({ entities, visible, onClose, onEntitySelect }) => {
+const EntityPanel: React.FC<EntityPanelProps> = ({ entities, visible, onClose, onEntitySelect, onContextMenu }) => {
   const [activeTab, setActiveTab] = useState<TabType>('blue');
 
   const iliation = (sidc: string): 'friendly' | 'hostile' | 'unknown' => {
@@ -77,6 +78,7 @@ const EntityPanel: React.FC<EntityPanelProps> = ({ entities, visible, onClose, o
             <Target size={16} />
           </button>
         </div>
+        <div className="w-px h-6 bg-white/10 mx-2 self-center"></div>
         <button 
           onClick={onClose} 
           className="p-2 text-gray-400 hover:bg-gray-800/30 transition-colors"
@@ -91,19 +93,22 @@ const EntityPanel: React.FC<EntityPanelProps> = ({ entities, visible, onClose, o
             {filteredEntities.map((entity, index) => (
               <button
                 key={entity.id}
-                onClick={() => onEntitySelect(entity)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEntitySelect(entity);
+                }}
                 className={`w-full py-2 px-3 text-left hover:bg-gray-800 transition-colors ${
                   index !== filteredEntities.length - 1 ? 'border-b border-white/10' : ''
                 }`}
               >
-                <div className="flex items-start gap-2">
+                <div className="flex items-center gap-2">
                   <div 
-                    className="w-8 h-8 flex items-center justify-center bg-black/50 rounded-md mt-0.5"
+                    className="w-8 h-8 flex items-center justify-center bg-black/50 rounded-md"
                     dangerouslySetInnerHTML={{ 
                       __html: createSymbol(entity.sidc, { size: 24 }) 
                     }} 
                   />
-                  <div>
+                  <div className="flex-1">
                     <div className="font-medium text-xs text-white">{entity.id}</div>
                     <div className="text-[10px]">
                       <span className="text-gray-400">
@@ -111,6 +116,15 @@ const EntityPanel: React.FC<EntityPanelProps> = ({ entities, visible, onClose, o
                       </span>
                     </div>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onContextMenu(entity, e);
+                    }}
+                    className="self-center p-1 hover:bg-gray-700/50 rounded-md transition-colors"
+                  >
+                    <MoreVertical size={14} className="text-gray-400" />
+                  </button>
                 </div>
               </button>
             ))}
