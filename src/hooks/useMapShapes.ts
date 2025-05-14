@@ -361,8 +361,7 @@ export const useMapShapes = () => {
     error,
     fetchShapes,
     createShape,
-    updateShape,
-    deleteShape
+    updateShape
   };
 };
 
