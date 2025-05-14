@@ -10,6 +10,7 @@ import { useMilitaryEntities } from '../../hooks/useMilitaryEntities';
 import { MilitaryEntity } from '../../types/entities';
 import { Search, Wifi, Bell, Menu, Settings, MessageSquare, Calendar, Clock, Video, Image, FileText } from 'lucide-react';
 import AlertPanel from '../alerts/AlertPanel';
+import LastAlertsPanel from '../alerts/LastAlertsPanel';
 
 // Default map settings
 const INITIAL_VIEW_STATE = {
@@ -27,6 +28,7 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
   const mapRef = useRef<MapRef>(null);
   const { entities, alerts, dismissAlert } = useMilitaryEntities();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showLastAlerts, setShowLastAlerts] = useState(false);
   
   // Update time every second
   useEffect(() => {
@@ -114,6 +116,7 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
           {currentTime.toLocaleTimeString()}
         </div>
         <button 
+          onClick={() => setShowLastAlerts(!showLastAlerts)}
           className="text-gray-400 hover:text-white transition-colors relative"
           title={`${alerts.length} new hostile entities`}
         >
@@ -126,8 +129,13 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         </button>
       </div>
 
-      {/* Alert Panel */}
+      {/* Alert Panels */}
       <AlertPanel alerts={alerts} onDismiss={dismissAlert} />
+      <LastAlertsPanel 
+        alerts={alerts} 
+        visible={showLastAlerts} 
+        onClose={() => setShowLastAlerts(false)} 
+      />
 
       {/* Bottom Action Bar */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900/40 backdrop-blur-sm border border-gray-800/30 rounded-lg">
