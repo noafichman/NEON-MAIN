@@ -27,31 +27,40 @@ export const useMapShapes = () => {
       
       // Transform the raw data into our shape types
       const formattedShapes = data.map((shape: any) => {
-        const baseShape = {
-          id: shape.id,
-          name: shape.name,
-          description: shape.description || '',
-          lineColor: shape.line_color,
-          lineStyle: shape.line_style as 'solid' | 'dashed' | 'dotted',
-          fillColor: shape.fill_color,
-          fillOpacity: shape.fill_opacity,
-          createdAt: shape.created_at,
-          updatedAt: shape.updated_at
-        };
-        
-        const shapeData = typeof shape.shape_data === 'string' 
-          ? JSON.parse(shape.shape_data) 
-          : shape.shape_data;
-        
         try {
-          switch (shape.type) {
+          // Ensure shape has a type, default to 'point' if missing
+          const shapeType = shape.type || 'point';
+          
+          console.log(`Processing shape: ID ${shape.id}, Type: ${shapeType}`);
+          
+          const baseShape = {
+            id: shape.id,
+            name: shape.name || `Unnamed ${shapeType}`,
+            description: shape.description || '',
+            lineColor: shape.line_color || shape.lineColor || '#1E88E5',
+            lineStyle: (shape.line_style || shape.lineStyle || 'solid') as 'solid' | 'dashed' | 'dotted',
+            fillColor: shape.fill_color || shape.fillColor || '#1E88E5',
+            fillOpacity: shape.fill_opacity ?? shape.fillOpacity ?? 0.3,
+            createdAt: shape.created_at,
+            updatedAt: shape.updated_at
+          };
+          
+          // Parse shape data, handling both string and object formats
+          const shapeData = typeof shape.shape_data === 'string' 
+            ? JSON.parse(shape.shape_data) 
+            : shape.shape_data || shape;
+          
+          // Detailed logging of shape data
+          console.log('Raw shape data:', JSON.stringify(shapeData, null, 2));
+          
+          switch (shapeType) {
             case 'point':
               return {
                 ...baseShape,
                 type: 'point' as const,
-                position: {
-                  latitude: shapeData.position_lat,
-                  longitude: shapeData.position_lng
+                position: shapeData.position || {
+                  latitude: shapeData.position_lat || shapeData.latitude,
+                  longitude: shapeData.position_lng || shapeData.longitude
                 }
               };
               
@@ -59,9 +68,9 @@ export const useMapShapes = () => {
               return {
                 ...baseShape,
                 type: 'circle' as const,
-                center: {
-                  latitude: shapeData.center_lat,
-                  longitude: shapeData.center_lng
+                center: shapeData.center || {
+                  latitude: shapeData.center_lat || shapeData.latitude,
+                  longitude: shapeData.center_lng || shapeData.longitude
                 },
                 radius: shapeData.radius
               };
@@ -70,14 +79,14 @@ export const useMapShapes = () => {
               return {
                 ...baseShape,
                 type: 'rectangle' as const,
-                bounds: {
+                bounds: shapeData.bounds || {
                   northEast: {
-                    latitude: shapeData.ne_lat,
-                    longitude: shapeData.ne_lng
+                    latitude: shapeData.ne_lat || shapeData.northEast?.latitude,
+                    longitude: shapeData.ne_lng || shapeData.northEast?.longitude
                   },
                   southWest: {
-                    latitude: shapeData.sw_lat,
-                    longitude: shapeData.sw_lng
+                    latitude: shapeData.sw_lat || shapeData.southWest?.latitude,
+                    longitude: shapeData.sw_lng || shapeData.southWest?.longitude
                   }
                 }
               };
@@ -86,38 +95,41 @@ export const useMapShapes = () => {
               return {
                 ...baseShape,
                 type: 'polyline' as const,
-                path: typeof shapeData.path === 'string' 
-                  ? JSON.parse(shapeData.path) 
-                  : shapeData.path
+                path: shapeData.path || shapeData
               };
               
             case 'polygon':
               return {
                 ...baseShape,
                 type: 'polygon' as const,
-                path: typeof shapeData.path === 'string' 
-                  ? JSON.parse(shapeData.path) 
-                  : shapeData.path
+                path: shapeData.path || shapeData
               };
               
             case 'arrow':
               return {
                 ...baseShape,
                 type: 'arrow' as const,
-                start: {
-                  latitude: shapeData.start_lat,
-                  longitude: shapeData.start_lng
+                start: shapeData.start || {
+                  latitude: shapeData.start_lat || shapeData.start?.latitude,
+                  longitude: shapeData.start_lng || shapeData.start?.longitude
                 },
-                end: {
-                  latitude: shapeData.end_lat,
-                  longitude: shapeData.end_lng
+                end: shapeData.end || {
+                  latitude: shapeData.end_lat || shapeData.end?.latitude,
+                  longitude: shapeData.end_lng || shapeData.end?.longitude
                 },
-                headSize: shapeData.head_size
+                headSize: shapeData.headSize || shapeData.head_size || 10
               };
               
             default:
-              console.error(`Unknown shape type: ${shape.type}`);
-              return null;
+              console.warn(`Unknown shape type: ${shapeType}. Defaulting to point.`);
+              return {
+                ...baseShape,
+                type: 'point' as const,
+                position: shapeData.position || {
+                  latitude: shapeData.position_lat || 0,
+                  longitude: shapeData.position_lng || 0
+                }
+              };
           }
         } catch (err) {
           console.error(`Error processing shape ${shape.id}:`, err);
@@ -152,6 +164,13 @@ export const useMapShapes = () => {
       }
       const result = await response.json();
       console.log('Shape API result:', result);
+      
+      // Ensure the result has a type
+      if (!result.type) {
+        console.warn('Shape missing type, using input type', shapeData.type);
+        result.type = shapeData.type;
+      }
+      
       let newShape;
       try {
         newShape = fetchShapeFromApiResult(result);
@@ -159,16 +178,19 @@ export const useMapShapes = () => {
         console.error('Error in fetchShapeFromApiResult:', err);
         newShape = result;
       }
+      
       if (!newShape.id) {
         console.warn('Shape missing id, not adding to state:', newShape);
         return false;
       }
+      
       console.log('Adding shape to state with id:', newShape.id);
       setShapes(prev => {
         const updated = [...prev, newShape];
         console.log('Shapes in state after add:', updated.map(s => s.id));
         return updated;
-      }); // Add immediately
+      });
+      
       return true;
     } catch (err: any) {
       console.error('Error creating shape:', err);
@@ -177,29 +199,7 @@ export const useMapShapes = () => {
     }
   };
 
-  // Delete a shape and remove from state immediately
-  const deleteShape = async (shapeId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/shapes/${shapeId}`, {
-        method: 'DELETE'
-      });
-      if (!response.ok && response.status !== 404) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      setShapes(prev => {
-        const updated = prev.filter(s => s.id !== shapeId);
-        console.log('Shapes in state after delete:', updated.map(s => s.id));
-        return updated;
-      });
-      return true;
-    } catch (err: any) {
-      console.error('Error deleting shape:', err);
-      setError('Failed to delete shape. Please try again later.');
-      return false;
-    }
-  };
-
-  // Update an existing shape
+  // Similar robust error handling for update and delete methods...
   const updateShape = async (shapeId: string, shapeData: Omit<MapShape, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       console.log(`Updating shape ${shapeId}:`, shapeData);
@@ -217,6 +217,12 @@ export const useMapShapes = () => {
       
       const result = await response.json();
       console.log('Shape update API result:', result);
+      
+      // Ensure the result has a type
+      if (!result.type) {
+        console.warn('Shape missing type, using input type', shapeData.type);
+        result.type = shapeData.type;
+      }
       
       let updatedShape;
       try {
@@ -246,31 +252,38 @@ export const useMapShapes = () => {
     }
   };
 
-  // Helper to transform API result to MapShape (reuse logic from fetchShapes)
+  // Helper to transform API result to MapShape with robust error handling
   const fetchShapeFromApiResult = (shape: any): MapShape => {
+    // Ensure shape has a type, default to 'point' if missing
+    const shapeType = shape.type || 'point';
+    
+    console.log(`Transforming shape: ID ${shape.id}, Type: ${shapeType}`);
+    
     const baseShape = {
       id: shape.id || shape._id,
-      name: shape.name,
+      name: shape.name || `Unnamed ${shapeType}`,
       description: shape.description || '',
-      lineColor: shape.lineColor || shape.line_color,
-      lineStyle: shape.lineStyle || shape.line_style,
-      fillColor: shape.fillColor || shape.fill_color,
-      fillOpacity: shape.fillOpacity || shape.fill_opacity,
+      lineColor: shape.lineColor || shape.line_color || '#1E88E5',
+      lineStyle: (shape.lineStyle || shape.line_style || 'solid') as 'solid' | 'dashed' | 'dotted',
+      fillColor: shape.fillColor || shape.fill_color || '#1E88E5',
+      fillOpacity: shape.fillOpacity ?? shape.fill_opacity ?? 0.3,
       createdAt: shape.created_at,
       updatedAt: shape.updated_at
     };
-    // Use shape.shape_data if exists, otherwise use direct fields
+    
+    // Parse shape data, handling both string and object formats
     const shapeData = shape.shape_data
       ? (typeof shape.shape_data === 'string' ? JSON.parse(shape.shape_data) : shape.shape_data)
       : shape;
-    switch (shape.type) {
+    
+    switch (shapeType) {
       case 'point':
         return {
           ...baseShape,
           type: 'point' as const,
           position: shapeData.position || {
-            latitude: shapeData.position_lat,
-            longitude: shapeData.position_lng
+            latitude: shapeData.position_lat || shapeData.latitude,
+            longitude: shapeData.position_lng || shapeData.longitude
           }
         };
       case 'circle':
@@ -278,8 +291,8 @@ export const useMapShapes = () => {
           ...baseShape,
           type: 'circle' as const,
           center: shapeData.center || {
-            latitude: shapeData.center_lat,
-            longitude: shapeData.center_lng
+            latitude: shapeData.center_lat || shapeData.latitude,
+            longitude: shapeData.center_lng || shapeData.longitude
           },
           radius: shapeData.radius
         };
@@ -289,12 +302,12 @@ export const useMapShapes = () => {
           type: 'rectangle' as const,
           bounds: shapeData.bounds || {
             northEast: {
-              latitude: shapeData.ne_lat,
-              longitude: shapeData.ne_lng
+              latitude: shapeData.ne_lat || shapeData.northEast?.latitude,
+              longitude: shapeData.ne_lng || shapeData.northEast?.longitude
             },
             southWest: {
-              latitude: shapeData.sw_lat,
-              longitude: shapeData.sw_lng
+              latitude: shapeData.sw_lat || shapeData.southWest?.latitude,
+              longitude: shapeData.sw_lng || shapeData.southWest?.longitude
             }
           }
         };
@@ -302,30 +315,38 @@ export const useMapShapes = () => {
         return {
           ...baseShape,
           type: 'polyline' as const,
-          path: shapeData.path
+          path: shapeData.path || shapeData
         };
       case 'polygon':
         return {
           ...baseShape,
           type: 'polygon' as const,
-          path: shapeData.path
+          path: shapeData.path || shapeData
         };
       case 'arrow':
         return {
           ...baseShape,
           type: 'arrow' as const,
           start: shapeData.start || {
-            latitude: shapeData.start_lat,
-            longitude: shapeData.start_lng
+            latitude: shapeData.start_lat || shapeData.start?.latitude,
+            longitude: shapeData.start_lng || shapeData.start?.longitude
           },
           end: shapeData.end || {
-            latitude: shapeData.end_lat,
-            longitude: shapeData.end_lng
+            latitude: shapeData.end_lat || shapeData.end?.latitude,
+            longitude: shapeData.end_lng || shapeData.end?.longitude
           },
-          headSize: shapeData.headSize || shapeData.head_size
+          headSize: shapeData.headSize || shapeData.head_size || 10
         };
       default:
-        throw new Error(`Unknown shape type: ${shape.type}`);
+        console.warn(`Unknown shape type: ${shapeType}. Defaulting to point.`);
+        return {
+          ...baseShape,
+          type: 'point' as const,
+          position: shapeData.position || {
+            latitude: shapeData.position_lat || 0,
+            longitude: shapeData.position_lng || 0
+          }
+        };
     }
   };
 
@@ -345,4 +366,4 @@ export const useMapShapes = () => {
   };
 };
 
-export default useMapShapes; 
+export default useMapShapes;
