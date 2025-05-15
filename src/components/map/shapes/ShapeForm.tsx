@@ -61,6 +61,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
   );
   const [radius, setRadius] = useState(initialShape && initialShape.type === 'circle' ? initialShape.radius : 100);
   
+  // State for headSize (only for arrow)
+  const [headSize, setHeadSize] = useState(
+    initialShape && initialShape.type === 'arrow' ? initialShape.headSize : 10
+  );
+  
   // Reference to the click listener
   const clickListenerRef = useRef<((e: mapboxgl.MapMouseEvent) => void) | null>(null);
   
@@ -194,7 +199,7 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           isEnemy,
           start: points[0],
           end: points[1],
-          headSize: 10
+          headSize
         };
         break;
       case 'polyline':
@@ -339,7 +344,7 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           isEnemy,
           start: points[0],
           end: points[1],
-          headSize: 10
+          headSize
         };
         break;
       case 'polyline':
@@ -629,6 +634,27 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           >
             Reset Map Points
           </button>
+        )}
+        
+        {/* Arrow-specific fields (slider for headSize) */}
+        {type === 'arrow' && !pickingPoints && (
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Arrow Head Size
+            </label>
+            <input
+              type="range"
+              min={0.4}
+              max={10}
+              step={0.1}
+              value={headSize ?? 10}
+              onChange={e => setHeadSize(Number(e.target.value))}
+              className="w-full"
+            />
+            <div className="text-right text-xs text-gray-400">
+              {(headSize ?? 10).toFixed(1)}
+            </div>
+          </div>
         )}
         
         {/* Action Buttons */}

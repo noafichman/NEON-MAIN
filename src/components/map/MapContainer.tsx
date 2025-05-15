@@ -25,9 +25,9 @@ import ChatPanel from '../chat/ChatPanel';
 
 // Default map settings
 const INITIAL_VIEW_STATE = {
-  longitude: 120.50,
-  latitude: 33.50,
-  zoom: 13
+  longitude: -43.31,
+  latitude: -22.79,
+  zoom: 16
 };
 
 interface MapContainerProps {

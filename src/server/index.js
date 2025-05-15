@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { query } from '../db/index.js';
+import fetch from 'node-fetch';
+import crypto from 'crypto';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -404,56 +406,98 @@ app.get('/api/video-state', async (req, res) => {
 });
 
 // Chat endpoint with improved responses
-app.post('/api/chat', (req, res) => {
+app.post('/api/chat', async (req, res) => {
   try {
-    const { message } = req.body;
-    console.log('\n\n======== CHAT INTERACTION ========');
-    console.log('USER MESSAGE:', message);
-    
-    // Default response
-    let reply = "I'm not sure I understand. Can you please rephrase your question?";
-    
-    // Simple message processing - convert to lowercase for easier matching
-    const lowerMessage = message.toLowerCase();
-    
-    // Check for different types of questions or keywords
-    if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      reply = "Hello! I'm your military tracking assistant. How can I help you today?";
+    let { action, sessionId, chatInput } = req.body;
+    console.log('ACTION:', action);
+    console.log('SESSION ID:', sessionId);
+    console.log('CHAT INPUT:', chatInput);
+
+    if (action !== 'sendMessage') {
+      return res.status(400).json({ error: 'Invalid action' });
     }
-    else if (lowerMessage.includes('help')) {
-      reply = "I can help you with information about military units, geographic locations, tactical situations, and system features. What would you like to know?";
+
+    // Generate sessionId if missing
+    if (!sessionId) {
+      sessionId = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+      console.log('Generated new sessionId:', sessionId);
     }
-    else if (lowerMessage.includes('weather')) {
-      reply = "Current weather conditions are displayed in the information panel at the top of the map. The conditions are updated based on the map's center location.";
+
+    // Try to send to webhook
+    let webhookReply = null;
+    const webhookUrl = process.env.CHAT_WEBHOOK_URL;
+    if (webhookUrl) {
+      try {
+        const webhookPayload = { action, sessionId, chatInput };
+        console.log('Sending payload to chat webhook:', JSON.stringify(webhookPayload, null, 2));
+        const webhookRes = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(webhookPayload)
+        });
+        const webhookText = await webhookRes.text();
+        console.log('Webhook response status:', webhookRes.status);
+        console.log('Webhook response body:', webhookText);
+        if (webhookRes.ok) {
+          let webhookData;
+          try {
+            webhookData = JSON.parse(webhookText);
+          } catch (e) {
+            console.error('Failed to parse webhook JSON:', e);
+            webhookData = {};
+          }
+          webhookReply = webhookData.reply;
+        } else {
+          console.error('Webhook returned error status:', webhookRes.status);
+        }
+      } catch (err) {
+        console.error('Error sending to webhook:', err);
+      }
     }
-    else if (lowerMessage.includes('unit') || lowerMessage.includes('force') || lowerMessage.includes('troop')) {
-      reply = "All active military units are displayed on the map with their current positions. You can click on any unit marker to see detailed information.";
+
+    // Use webhook reply if available, otherwise fallback
+    let reply = webhookReply;
+    if (!reply) {
+      // ... existing local chat logic ...
+      reply = "I'm not sure I understand. Can you please rephrase your question?";
+      const lowerMessage = (chatInput || '').toLowerCase();
+      if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+        reply = "Hello! I'm your military tracking assistant. How can I help you today?";
+      }
+      else if (lowerMessage.includes('help')) {
+        reply = "I can help you with information about military units, geographic locations, tactical situations, and system features. What would you like to know?";
+      }
+      else if (lowerMessage.includes('weather')) {
+        reply = "Current weather conditions are displayed in the information panel at the top of the map. The conditions are updated based on the map's center location.";
+      }
+      else if (lowerMessage.includes('unit') || lowerMessage.includes('force') || lowerMessage.includes('troop')) {
+        reply = "All active military units are displayed on the map with their current positions. You can click on any unit marker to see detailed information.";
+      }
+      else if (lowerMessage.includes('enemy') || lowerMessage.includes('hostile') || lowerMessage.includes('threat')) {
+        reply = "Hostile forces are marked in red on the map. Current intelligence indicates multiple hostile elements in the northeastern quadrant. Exercise caution in that area.";
+      }
+      else if (lowerMessage.includes('location') || lowerMessage.includes('where') || lowerMessage.includes('position')) {
+        reply = "You can see all unit positions on the main map. Use the search bar at the top-right to locate specific units or geographic locations.";
+      }
+      else if (lowerMessage.includes('mission') || lowerMessage.includes('objective')) {
+        reply = "Current mission objectives: 1) Secure the perimeter around marked zones, 2) Monitor all movement in the region, 3) Report any suspicious activity immediately.";
+      }
+      else if (lowerMessage.includes('map')) {
+        reply = "The map interface shows all units, geographic features, and tactical information. You can zoom in/out, add shapes, and view detailed information by clicking on any element.";
+      }
+      else if (lowerMessage.includes('thank')) {
+        reply = "You're welcome. Please let me know if you need any further assistance.";
+      }
+      else if (lowerMessage.includes('bye') || lowerMessage.includes('goodbye')) {
+        reply = "Goodbye. Contact me anytime if you need assistance.";
+      }
     }
-    else if (lowerMessage.includes('enemy') || lowerMessage.includes('hostile') || lowerMessage.includes('threat')) {
-      reply = "Hostile forces are marked in red on the map. Current intelligence indicates multiple hostile elements in the northeastern quadrant. Exercise caution in that area.";
-    }
-    else if (lowerMessage.includes('location') || lowerMessage.includes('where') || lowerMessage.includes('position')) {
-      reply = "You can see all unit positions on the main map. Use the search bar at the top-right to locate specific units or geographic locations.";
-    }
-    else if (lowerMessage.includes('mission') || lowerMessage.includes('objective')) {
-      reply = "Current mission objectives: 1) Secure the perimeter around marked zones, 2) Monitor all movement in the region, 3) Report any suspicious activity immediately.";
-    }
-    else if (lowerMessage.includes('map')) {
-      reply = "The map interface shows all units, geographic features, and tactical information. You can zoom in/out, add shapes, and view detailed information by clicking on any element.";
-    }
-    else if (lowerMessage.includes('thank')) {
-      reply = "You're welcome. Please let me know if you need any further assistance.";
-    }
-    else if (lowerMessage.includes('bye') || lowerMessage.includes('goodbye')) {
-      reply = "Goodbye. Contact me anytime if you need assistance.";
-    }
-    
+
     // Print the exact response to the log
     console.log('CHAT RESPONSE:', reply);
     console.log('====================================\n\n');
-    
-    // Send response
-    res.json({ reply });
+
+    res.json({ reply, sessionId });
   } catch (error) {
     console.error('Error handling chat message:', error);
     res.status(500).json({ 
