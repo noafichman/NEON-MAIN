@@ -1,0 +1,8 @@
+{
+  "name": "military-tracking-netlify-functions",
+  "version": "1.0.0",
+  "description": "Serverless functions for military tracking app",
+  "dependencies": {
+    "pg": "^8.11.0"
+  }
+} 
