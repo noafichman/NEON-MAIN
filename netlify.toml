@@ -5,7 +5,7 @@
 
 [[redirects]]
   from = "/api/military-entities"
-  to = "/.netlify/functions/military-entities-simple"
+  to = "/.netlify/functions/military-entities"
   status = 200
 
 [[redirects]]
