@@ -1,52 +1,202 @@
-const { Pool } = require('pg');
-
-// Configure database connection
-const dbConfig = {
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-};
-
-// Create connection pool
-let pool;
-
-// Initialize database connection
-function getPool() {
-  if (!pool) {
-    console.log('Creating new database connection pool');
-    
-    try {
-      // Log DB config (hide password)
-      const safeDbConfig = {...dbConfig};
-      if (safeDbConfig.connectionString) {
-        safeDbConfig.connectionString = safeDbConfig.connectionString.replace(/:[^:]*@/, ':*****@');
-      }
-      console.log('DB Config:', JSON.stringify(safeDbConfig));
-      
-      pool = new Pool(dbConfig);
-      
-      // Handle pool errors
-      pool.on('error', (err) => {
-        console.error('Unexpected error on idle client', err);
-        pool = null;
-      });
-      
-      // Log successful pool creation
-      console.log('DB connection pool created successfully');
-    } catch (err) {
-      console.error('Error creating connection pool:', err);
-      throw err;
-    }
+// Mock data to simulate database records from map_shapes table
+const mockShapes = [
+  {
+    "id": "fbc38182-1387-4b82-a2b6-5c0b70583254",
+    "name": "building",
+    "description": "",
+    "type": "polygon",
+    "line_color": "#8B0000",
+    "line_style": "dashed",
+    "fill_color": "#610027",
+    "fill_opacity": 0.4,
+    "shape_data": {
+      "path": [
+        {
+          "latitude": -22.791017556678582,
+          "longitude": -43.308553363605625
+        },
+        {
+          "latitude": -22.791363900558764,
+          "longitude": -43.308052161734764
+        },
+        {
+          "latitude": -22.792293596673503,
+          "longitude": -43.30871743583435
+        },
+        {
+          "latitude": -22.791686636390367,
+          "longitude": -43.309147162354805
+        }
+      ]
+    },
+    "created_at": "2025-05-15T10:49:45.868Z",
+    "updated_at": "2025-05-15T10:49:45.868Z",
+    "is_enemy": true
+  },
+  {
+    "id": "84a1eb1c-f6b6-4555-9912-1e129c2de55d",
+    "name": "Our forces",
+    "description": "",
+    "type": "polygon",
+    "line_color": "#1E88E5",
+    "line_style": "solid",
+    "fill_color": "#1E88E5",
+    "fill_opacity": 0.3,
+    "shape_data": {
+      "path": [
+        {
+          "latitude": -22.790635463277653,
+          "longitude": -43.31079132541379
+        },
+        {
+          "latitude": -22.7908035828207,
+          "longitude": -43.3113543875256
+        },
+        {
+          "latitude": -22.792593198177897,
+          "longitude": -43.31116457912455
+        },
+        {
+          "latitude": -22.792286052978113,
+          "longitude": -43.31029495238312
+        }
+      ]
+    },
+    "created_at": "2025-05-15T10:50:19.297Z",
+    "updated_at": "2025-05-15T10:50:19.297Z",
+    "is_enemy": false
+  },
+  {
+    "id": "547dd9f0-d4e9-4a5c-9b33-37e9679fc3be",
+    "name": "Polyline 2",
+    "description": "",
+    "type": "polyline",
+    "line_color": "#ff0033",
+    "line_style": "dashed",
+    "fill_color": "#1E88E5",
+    "fill_opacity": 0.3,
+    "shape_data": {
+      "path": [
+        {
+          "latitude": -22.790513158308613,
+          "longitude": -43.30996892857402
+        },
+        {
+          "latitude": -22.790969403232495,
+          "longitude": -43.309775394705525
+        },
+        {
+          "latitude": -22.791215623821728,
+          "longitude": -43.31043492278806
+        },
+        {
+          "latitude": -22.79325584957688,
+          "longitude": -43.309358879710175
+        },
+        {
+          "latitude": -22.792958006091155,
+          "longitude": -43.30877813505313
+        },
+        {
+          "latitude": -22.793358098366255,
+          "longitude": -43.30813479917626
+        }
+      ]
+    },
+    "created_at": "2025-05-15T10:51:03.391Z",
+    "updated_at": "2025-05-15T10:51:27.911Z",
+    "is_enemy": false
+  },
+  {
+    "id": "a5ee87c0-4462-4c9d-8e61-bdff37a574dc",
+    "name": "Target For Destroy",
+    "description": "",
+    "type": "circle",
+    "line_color": "#8B0000",
+    "line_style": "dashed",
+    "fill_color": "#1E88E5",
+    "fill_opacity": 0.3,
+    "shape_data": {
+      "radius": 300,
+      "center_lat": -22.79184232365803,
+      "center_lng": -43.30888523477603
+    },
+    "created_at": "2025-05-15T10:55:31.080Z",
+    "updated_at": "2025-05-15T10:55:31.080Z",
+    "is_enemy": false
+  },
+  {
+    "id": "c426a7eb-f93a-4891-95fc-3cb050f730cd",
+    "name": "Air Support Route",
+    "description": "",
+    "type": "arrow",
+    "line_color": "#1E88E5",
+    "line_style": "solid",
+    "fill_color": "#1E88E5",
+    "fill_opacity": 0.3,
+    "shape_data": {
+      "end_lat": -22.791525257310298,
+      "end_lng": -43.30924838503884,
+      "head_size": 0.8,
+      "start_lat": -22.790348503961027,
+      "start_lng": -43.311976501573724
+    },
+    "created_at": "2025-05-15T10:56:03.349Z",
+    "updated_at": "2025-05-15T10:56:03.349Z",
+    "is_enemy": false
+  },
+  {
+    "id": "d4cb3147-8454-470f-a3b0-06adce9b7112",
+    "name": "Enemy ",
+    "description": "",
+    "type": "rectangle",
+    "line_color": "#8B0000",
+    "line_style": "dashed",
+    "fill_color": "#a61fe5",
+    "fill_opacity": 0.3,
+    "shape_data": {
+      "ne_lat": -22.791101258105158,
+      "ne_lng": -43.30969804537847,
+      "sw_lat": -22.793128358619597,
+      "sw_lng": -43.3093509904827
+    },
+    "created_at": "2025-05-15T10:53:36.545Z",
+    "updated_at": "2025-05-15T11:00:28.288Z",
+    "is_enemy": true
+  },
+  {
+    "id": "78e0368c-289a-497b-9487-ce37672da774",
+    "name": "Arrow 2",
+    "description": "",
+    "type": "arrow",
+    "line_color": "#00f030",
+    "line_style": "dashed",
+    "fill_color": "#597368",
+    "fill_opacity": 0.3,
+    "shape_data": {
+      "end_lat": -22.791916905191954,
+      "end_lng": -43.30926130676505,
+      "head_size": 0.9,
+      "start_lat": -22.792494535081346,
+      "start_lng": -43.31061378158401
+    },
+    "created_at": "2025-05-15T10:48:11.033Z",
+    "updated_at": "2025-05-15T10:48:35.967Z",
+    "is_enemy": false
   }
-  return pool;
+];
+
+// Helper function to find a shape by ID
+function getShapeById(id) {
+  return mockShapes.find(shape => shape.id === id);
 }
 
-// Execute query with proper connection handling
-async function query(text, params = []) {
-  const client = await getPool().connect();
+// Add detailed logging function
+function debugLog(title, data) {
   try {
-    return await client.query(text, params);
-  } finally {
-    client.release();
+    console.log(`${title}: ${typeof data === 'object' ? JSON.stringify(data, null, 2) : data}`);
+  } catch (err) {
+    console.log(`Error logging ${title}:`, err.message);
   }
 }
 
@@ -67,7 +217,10 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    console.log(`Processing ${event.httpMethod} request for shapes-db`);
+    debugLog('Processing request', {
+      method: event.httpMethod,
+      path: event.path,
+    });
     
     // Extract path parameters if any
     const path = event.path;
@@ -77,19 +230,20 @@ exports.handler = async function(event, context) {
     // Check if the request is for a specific shape (has an ID in the path)
     const isSpecificShapeRequest = 
       shapeId && 
-      shapeId !== 'shapes-db' && 
-      !shapeId.includes('shapes-db');
+      shapeId !== 'shapes' && 
+      pathParts.includes('shapes');
     
-    console.log(`Request path: ${path}, Shape ID: ${isSpecificShapeRequest ? shapeId : 'none'}`);
+    debugLog('Request path', path);
+    debugLog('Shape ID', isSpecificShapeRequest ? shapeId : 'none');
     
     // Handle different HTTP methods
     switch (event.httpMethod) {
       case 'GET':
         if (isSpecificShapeRequest) {
           // Get specific shape by ID
-          const result = await query('SELECT * FROM map_shapes WHERE id = $1', [shapeId]);
+          const shape = getShapeById(shapeId);
           
-          if (result.rows.length === 0) {
+          if (!shape) {
             return {
               statusCode: 404,
               headers,
@@ -97,168 +251,106 @@ exports.handler = async function(event, context) {
             };
           }
           
+          debugLog('Returning single shape', shape);
           return {
             statusCode: 200,
             headers,
-            body: JSON.stringify(result.rows[0])
+            body: JSON.stringify(shape)
           };
         } else {
           // Get all shapes
-          const result = await query('SELECT * FROM map_shapes');
-          console.log(`Found ${result.rows.length} shapes in database`);
+          debugLog('Returning all shapes', `${mockShapes.length} shapes`);
           
           return {
             statusCode: 200,
             headers,
-            body: JSON.stringify(result.rows)
+            body: JSON.stringify(mockShapes)
           };
         }
         
       case 'POST':
-        // Create a new shape
+        // Create a new shape (mock implementation)
         try {
           const data = JSON.parse(event.body);
           
-          // Validate required fields
-          if (!data.name || !data.type) {
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ error: 'Missing required fields' })
-            };
-          }
+          // Generate a mock response with the data
+          const newId = `new-${Date.now()}`;
+          const newShape = {
+            id: newId,
+            name: data.name || 'New Shape',
+            description: data.description || '',
+            type: data.type,
+            line_color: data.lineColor || '#1E88E5',
+            line_style: data.lineStyle || 'solid',
+            fill_color: data.fillColor || '#1E88E5',
+            fill_opacity: data.fillOpacity || 0.3,
+            is_enemy: data.isEnemy || false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
           
-          // Different fields based on shape type
-          let positionData = {};
-          
+          // Add shape_data based on type
+          let shapeData = {};
           switch (data.type) {
             case 'point':
-              if (!data.position) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Missing position data' })
-                };
-              }
-              positionData = {
-                position_lat: data.position.latitude,
-                position_lng: data.position.longitude
+              shapeData = {
+                position_lat: data.position?.latitude || 0,
+                position_lng: data.position?.longitude || 0
               };
               break;
-              
             case 'circle':
-              if (!data.center || !data.radius) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Missing center or radius data' })
-                };
-              }
-              positionData = {
-                center_lat: data.center.latitude,
-                center_lng: data.center.longitude,
-                radius: data.radius
+              shapeData = {
+                center_lat: data.center?.latitude || 0,
+                center_lng: data.center?.longitude || 0,
+                radius: data.radius || 1000
               };
               break;
-              
             case 'rectangle':
-              if (!data.bounds) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Missing bounds data' })
-                };
-              }
-              positionData = {
-                ne_lat: data.bounds.northEast.latitude,
-                ne_lng: data.bounds.northEast.longitude,
-                sw_lat: data.bounds.southWest.latitude,
-                sw_lng: data.bounds.southWest.longitude
+              shapeData = {
+                ne_lat: data.bounds?.northEast?.latitude || 0,
+                ne_lng: data.bounds?.northEast?.longitude || 0,
+                sw_lat: data.bounds?.southWest?.latitude || 0,
+                sw_lng: data.bounds?.southWest?.longitude || 0
               };
               break;
-              
             case 'polyline':
             case 'polygon':
-              if (!data.path || data.path.length < 2) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Invalid path data' })
-                };
-              }
-              // Convert array of points to JSON string
-              positionData = {
-                path: data.path
+              shapeData = {
+                path: data.path || []
               };
               break;
-              
             case 'arrow':
-              if (!data.start || !data.end) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Missing arrow start or end points' })
-                };
-              }
-              positionData = {
-                start_lat: data.start.latitude,
-                start_lng: data.start.longitude,
-                end_lat: data.end.latitude,
-                end_lng: data.end.longitude,
-                head_size: data.headSize || 10 // Default head size if not provided
+              shapeData = {
+                start_lat: data.start?.latitude || 0,
+                start_lng: data.start?.longitude || 0,
+                end_lat: data.end?.latitude || 0,
+                end_lng: data.end?.longitude || 0,
+                head_size: data.headSize || 10
               };
               break;
-              
-            default:
-              return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: 'Invalid shape type' })
-              };
           }
           
-          // Create database record
-          const result = await query(
-            `INSERT INTO map_shapes (
-              name, 
-              description, 
-              type, 
-              line_color, 
-              line_style, 
-              fill_color, 
-              fill_opacity,
-              shape_data,
-              is_enemy
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-            [
-              data.name,
-              data.description || '',
-              data.type,
-              data.lineColor || '#1E88E5',
-              data.lineStyle || 'solid',
-              data.fillColor || '#1E88E5',
-              data.fillOpacity || 0.3,
-              JSON.stringify(positionData),
-              data.isEnemy || false
-            ]
-          );
+          newShape.shape_data = shapeData;
+          
+          // Add to mock shapes (for this session only)
+          mockShapes.push(newShape);
           
           return {
             statusCode: 201,
             headers,
-            body: JSON.stringify(result.rows[0])
+            body: JSON.stringify(newShape)
           };
         } catch (err) {
           console.error('Error creating shape:', err);
           return {
-            statusCode: 500,
+            statusCode: 400,
             headers,
-            body: JSON.stringify({ error: 'Failed to create shape', details: err.message })
+            body: JSON.stringify({ error: 'Invalid shape data', details: err.message })
           };
         }
         
       case 'PUT':
-        // Update a shape
+        // Update a shape (mock implementation)
         if (!isSpecificShapeRequest) {
           return {
             statusCode: 400,
@@ -269,164 +361,101 @@ exports.handler = async function(event, context) {
         
         try {
           const data = JSON.parse(event.body);
+          const existingShapeIndex = mockShapes.findIndex(s => s.id === shapeId);
           
-          // Validate required fields
-          if (!data.name || !data.type) {
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ error: 'Missing required fields' })
-            };
-          }
-          
-          // Check if shape exists
-          const checkResult = await query('SELECT id, type FROM map_shapes WHERE id = $1', [shapeId]);
-          if (checkResult.rows.length === 0) {
+          if (existingShapeIndex === -1) {
             return {
               statusCode: 404,
               headers,
-              body: JSON.stringify({ error: 'Shape not found' })
+              body: JSON.stringify({ error: `Shape with ID ${shapeId} not found` })
             };
           }
           
-          // Make sure shape type hasn't changed (not allowed)
-          if (checkResult.rows[0].type !== data.type) {
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ error: 'Cannot change shape type' })
-            };
-          }
+          // Update the shape
+          const updatedShape = {
+            ...mockShapes[existingShapeIndex],
+            name: data.name || mockShapes[existingShapeIndex].name,
+            description: data.description || mockShapes[existingShapeIndex].description,
+            line_color: data.lineColor || mockShapes[existingShapeIndex].line_color,
+            line_style: data.lineStyle || mockShapes[existingShapeIndex].line_style,
+            fill_color: data.fillColor || mockShapes[existingShapeIndex].fill_color,
+            fill_opacity: data.fillOpacity || mockShapes[existingShapeIndex].fill_opacity,
+            is_enemy: data.isEnemy !== undefined ? data.isEnemy : mockShapes[existingShapeIndex].is_enemy,
+            updated_at: new Date().toISOString()
+          };
           
-          // Process shape position data based on type
-          let positionData = {};
+          // Update shape_data based on type
+          let shapeData = {...mockShapes[existingShapeIndex].shape_data};
           switch (data.type) {
             case 'point':
-              if (!data.position) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Missing position data' })
-                };
+              if (data.position) {
+                shapeData.position_lat = data.position.latitude;
+                shapeData.position_lng = data.position.longitude;
               }
-              positionData = {
-                position_lat: data.position.latitude,
-                position_lng: data.position.longitude
-              };
               break;
-              
             case 'circle':
-              if (!data.center || !data.radius) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Missing center or radius data' })
-                };
+              if (data.center) {
+                shapeData.center_lat = data.center.latitude;
+                shapeData.center_lng = data.center.longitude;
               }
-              positionData = {
-                center_lat: data.center.latitude,
-                center_lng: data.center.longitude,
-                radius: data.radius
-              };
+              if (data.radius) {
+                shapeData.radius = data.radius;
+              }
               break;
-              
             case 'rectangle':
-              if (!data.bounds) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Missing bounds data' })
-                };
+              if (data.bounds) {
+                if (data.bounds.northEast) {
+                  shapeData.ne_lat = data.bounds.northEast.latitude;
+                  shapeData.ne_lng = data.bounds.northEast.longitude;
+                }
+                if (data.bounds.southWest) {
+                  shapeData.sw_lat = data.bounds.southWest.latitude;
+                  shapeData.sw_lng = data.bounds.southWest.longitude;
+                }
               }
-              positionData = {
-                ne_lat: data.bounds.northEast.latitude,
-                ne_lng: data.bounds.northEast.longitude,
-                sw_lat: data.bounds.southWest.latitude,
-                sw_lng: data.bounds.southWest.longitude
-              };
               break;
-              
             case 'polyline':
             case 'polygon':
-              if (!data.path || data.path.length < 2) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Invalid path data' })
-                };
+              if (data.path) {
+                shapeData.path = data.path;
               }
-              positionData = {
-                path: data.path
-              };
               break;
-              
             case 'arrow':
-              if (!data.start || !data.end) {
-                return {
-                  statusCode: 400,
-                  headers,
-                  body: JSON.stringify({ error: 'Missing arrow start or end points' })
-                };
+              if (data.start) {
+                shapeData.start_lat = data.start.latitude;
+                shapeData.start_lng = data.start.longitude;
               }
-              positionData = {
-                start_lat: data.start.latitude,
-                start_lng: data.start.longitude,
-                end_lat: data.end.latitude,
-                end_lng: data.end.longitude,
-                head_size: data.headSize || 10
-              };
+              if (data.end) {
+                shapeData.end_lat = data.end.latitude;
+                shapeData.end_lng = data.end.longitude;
+              }
+              if (data.headSize) {
+                shapeData.head_size = data.headSize;
+              }
               break;
-              
-            default:
-              return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: 'Invalid shape type' })
-              };
           }
           
-          // Update the shape in the database
-          const updateResult = await query(
-            `UPDATE map_shapes SET
-              name = $1,
-              description = $2,
-              line_color = $3,
-              line_style = $4,
-              fill_color = $5,
-              fill_opacity = $6,
-              shape_data = $7,
-              is_enemy = $8,
-              updated_at = NOW()
-            WHERE id = $9 RETURNING *`,
-            [
-              data.name,
-              data.description || '',
-              data.lineColor || '#1E88E5',
-              data.lineStyle || 'solid',
-              data.fillColor || '#1E88E5',
-              data.fillOpacity || 0.3,
-              JSON.stringify(positionData),
-              data.isEnemy || false,
-              shapeId
-            ]
-          );
+          updatedShape.shape_data = shapeData;
+          
+          // Update in mock shapes array
+          mockShapes[existingShapeIndex] = updatedShape;
           
           return {
             statusCode: 200,
             headers,
-            body: JSON.stringify(updateResult.rows[0])
+            body: JSON.stringify(updatedShape)
           };
         } catch (err) {
           console.error('Error updating shape:', err);
           return {
-            statusCode: 500,
+            statusCode: 400,
             headers,
-            body: JSON.stringify({ error: 'Failed to update shape', details: err.message })
+            body: JSON.stringify({ error: 'Invalid shape data', details: err.message })
           };
         }
         
       case 'DELETE':
-        // Delete a shape
+        // Delete a shape (mock implementation)
         if (!isSpecificShapeRequest) {
           return {
             statusCode: 400,
@@ -435,34 +464,24 @@ exports.handler = async function(event, context) {
           };
         }
         
-        try {
-          // Check if shape exists
-          const checkResult = await query('SELECT id FROM map_shapes WHERE id = $1', [shapeId]);
-          
-          if (checkResult.rows.length === 0) {
-            return {
-              statusCode: 404,
-              headers,
-              body: JSON.stringify({ error: 'Shape not found' })
-            };
-          }
-          
-          // Delete the shape
-          await query('DELETE FROM map_shapes WHERE id = $1', [shapeId]);
-          
+        const shapeIndex = mockShapes.findIndex(s => s.id === shapeId);
+        
+        if (shapeIndex === -1) {
           return {
-            statusCode: 200,
+            statusCode: 404,
             headers,
-            body: JSON.stringify({ success: true, message: 'Shape deleted successfully' })
-          };
-        } catch (err) {
-          console.error('Error deleting shape:', err);
-          return {
-            statusCode: 500,
-            headers,
-            body: JSON.stringify({ error: 'Failed to delete shape', details: err.message })
+            body: JSON.stringify({ error: `Shape with ID ${shapeId} not found` })
           };
         }
+        
+        // Remove from mock shapes array
+        mockShapes.splice(shapeIndex, 1);
+        
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ success: true, message: `Shape ${shapeId} deleted successfully` })
+        };
         
       default:
         return {
@@ -472,13 +491,10 @@ exports.handler = async function(event, context) {
         };
     }
   } catch (error) {
-    console.error('Error in shapes-db function:', error);
+    console.error('Error in shapes function:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      },
+      headers,
       body: JSON.stringify({ 
         error: 'Failed to process shape request',
         details: error.message 
