@@ -5,9 +5,10 @@ import { ContextMenuPosition } from '../../../types/contextMenu';
 interface MapContextMenuProps {
   position: ContextMenuPosition;
   onClose: () => void;
+  onAddManualEntity?: () => void;
 }
 
-const MapContextMenu: React.FC<MapContextMenuProps> = ({ position, onClose }) => {
+const MapContextMenu: React.FC<MapContextMenuProps> = ({ position, onClose, onAddManualEntity }) => {
   // Close the menu when clicking outside
   React.useEffect(() => {
     const handleClickOutside = () => onClose();
@@ -36,7 +37,7 @@ const MapContextMenu: React.FC<MapContextMenuProps> = ({ position, onClose }) =>
       
       <div className="p-1">
         <MenuItem icon={<MapPin size={16} />} label="Drop Pin" onClick={onClose} />
-        <MenuItem icon={<Plus size={16} />} label="Add Entity" onClick={onClose} />
+        <MenuItem icon={<Plus size={16} />} label="Add Entity" onClick={() => { onClose(); onAddManualEntity && onAddManualEntity(); }} />
         <MenuItem icon={<Layers size={16} />} label="Change Layer" onClick={onClose} />
         <MenuItem icon={<Target size={16} />} label="Center Map Here" onClick={onClose} />
         <MenuItem icon={<Download size={16} />} label="Save Location" onClick={onClose} />

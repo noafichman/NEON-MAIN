@@ -507,6 +507,98 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Get all manual entities
+app.get('/api/manual-entities', async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM manual_entities');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching manual entities:', error);
+    res.status(500).json({ error: 'Failed to fetch manual entities', details: error.message });
+  }
+});
+
+// Add a new manual entity
+app.post('/api/manual-entities', async (req, res) => {
+  const { id, friendly, echlon, destroyed, x, y, z } = req.body;
+  try {
+    const result = await query(
+      'INSERT INTO manual_entities (id, friendly, echlon, destroyed, x, y, z) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [id, friendly, echlon, destroyed, x, y, z]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error adding manual entity:', error);
+    res.status(500).json({ error: 'Failed to add manual entity', details: error.message });
+  }
+});
+
+// Delete a manual entity
+app.delete('/api/manual-entities/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`Deleting manual entity with ID: ${id}`);
+    
+    // Check if entity exists
+    const checkResult = await query('SELECT id FROM manual_entities WHERE id = $1', [id]);
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Manual entity not found' });
+    }
+    
+    // Delete the entity
+    await query('DELETE FROM manual_entities WHERE id = $1', [id]);
+    
+    console.log(`Manual entity ${id} deleted successfully`);
+    res.status(200).json({ success: true, message: 'Manual entity deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting manual entity:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete manual entity',
+      details: error.message 
+    });
+  }
+});
+
+// Update a manual entity
+app.put('/api/manual-entities/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { friendly, echlon, destroyed, x, y, z } = req.body;
+    console.log(`Updating manual entity with ID: ${id}`);
+    console.log('Update data:', JSON.stringify(req.body, null, 2));
+    
+    // Check if entity exists
+    const checkResult = await query('SELECT id FROM manual_entities WHERE id = $1', [id]);
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Manual entity not found' });
+    }
+    
+    // Update the entity - removed last_update column which doesn't exist
+    const result = await query(
+      `UPDATE manual_entities SET 
+        friendly = $1, 
+        echlon = $2, 
+        destroyed = $3, 
+        x = $4, 
+        y = $5, 
+        z = $6
+      WHERE id = $7 RETURNING *`,
+      [friendly, echlon, destroyed, x, y, z, id]
+    );
+    
+    console.log(`Manual entity ${id} updated successfully`);
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating manual entity:', error);
+    res.status(500).json({ 
+      error: 'Failed to update manual entity',
+      details: error.message 
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });

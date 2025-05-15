@@ -7,6 +7,7 @@ import EntityMarker from './entities/EntityMarker';
 import EntityInfo from './entities/EntityInfo';
 import EntityPanel from '../sidebar/EntityPanel';
 import { useMilitaryEntities } from '../../hooks/useMilitaryEntities';
+import { useManualEntities, ManualEntityData } from '../../hooks/useManualEntities';
 import { useMapShapes } from '../../hooks/useMapShapes';
 import { MilitaryEntity } from '../../types/entities';
 import { MapShape, Position } from '../../types/shapes';
@@ -22,6 +23,19 @@ import WeatherDisplay from '../weather/WeatherDisplay';
 import { Location } from '../../utils/locationService';
 import { GeocodingResult } from '../../hooks/useGeocoding';
 import ChatPanel from '../chat/ChatPanel';
+import ManualEntityForm from './entities/ManualEntityForm';
+import EditManualEntityForm from './entities/EditManualEntityForm';
+
+// Dynamically determine API URL based on environment
+const API_URL = import.meta.env.PROD 
+  ? '/api' 
+  : 'http://localhost:3001/api';
+
+// Manual entity extension to handle raw data
+interface ManualEntityExtension extends MilitaryEntity {
+  isManual?: boolean;
+  _raw?: ManualEntityData;
+}
 
 // Default map settings
 const INITIAL_VIEW_STATE = {
@@ -47,6 +61,15 @@ interface SearchResult {
 const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelVisible }) => {
   const mapRef = useRef<MapRef>(null);
   const { entities, alerts, dismissAlert } = useMilitaryEntities();
+  const { 
+    manualEntities, 
+    manualAlerts,
+    dismissManualAlert,
+    refreshManualEntities, 
+    deleteManualEntity, 
+    updateManualEntity,
+    setManualEntities
+  } = useManualEntities();
   const { shapes, loading: shapesLoading, createShape, updateShape, deleteShape } = useMapShapes();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showLastAlerts, setShowLastAlerts] = useState(false);
@@ -55,7 +78,7 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
   const [shapeMenuPosition, setShapeMenuPosition] = useState({ x: 0, y: 0 });
   const [previewShape, setPreviewShape] = useState<MapShape | null>(null);
   const [editingShape, setEditingShape] = useState<MapShape | null>(null);
-  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -68,6 +91,26 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
     lat: INITIAL_VIEW_STATE.latitude,
     lng: INITIAL_VIEW_STATE.longitude
   });
+  
+  // State for context menu control
+  const [contextMenuEnabled, setContextMenuEnabled] = useState(true);
+  
+  // State for selected entity and info display
+  const [selectedEntity, setSelectedEntity] = useState<MilitaryEntity | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [selectedGeocodedLocation, setSelectedGeocodedLocation] = useState<GeocodingResult | null>(null);
+  
+  // Combine regular and manual entities
+  const allEntities = [...entities, ...manualEntities];
+  
+  // Combined alerts for both regular and manual entities
+  const allAlerts = [...alerts, ...manualAlerts];
+  const dismissAnyAlert = (alertId: string) => {
+    // Try to dismiss as regular alert
+    dismissAlert(alertId);
+    // Also try to dismiss as manual alert
+    dismissManualAlert(alertId);
+  };
   
   // Update time every second
   useEffect(() => {
@@ -108,11 +151,6 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
       clearInterval(intervalId);
     };
   }, [mapRef.current]);
-  
-  // State for selected entity and info display
-  const [selectedEntity, setSelectedEntity] = useState<MilitaryEntity | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [selectedGeocodedLocation, setSelectedGeocodedLocation] = useState<GeocodingResult | null>(null);
   
   // Map context menu
   const { 
@@ -167,6 +205,12 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
     // Don't handle entity clicks if we're in shape creation mode
     if (shapeType) return;
     
+    // Don't handle entity clicks if context menus are disabled
+    if (!contextMenuEnabled) {
+      console.log('Entity click suppressed during cooldown');
+      return;
+    }
+    
     e.stopPropagation();
     hideMapContext();
     
@@ -184,18 +228,8 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         entity
       });
     }
-  }, [hideMapContext, hideEntityContext, showEntityContext, shapeType]);
+  }, [hideMapContext, hideEntityContext, showEntityContext, shapeType, contextMenuEnabled]);
   
-  // Prevent default context menu
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-  }, []);
-
-  // Clear mouse position when mouse leaves the map
-  const handleMouseOut = useCallback(() => {
-    setMousePosition(null);
-  }, []);
-
   // Handle shapes button click
   const handleShapesButtonClick = (e: React.MouseEvent) => {
     const buttonRect = e.currentTarget.getBoundingClientRect();
@@ -335,6 +369,91 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
     }
   };
 
+  // Then modify the handleContextMenu function to check this flag
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // If context menus are disabled, do nothing
+    if (!contextMenuEnabled) {
+      console.log('Context menu suppressed');
+      return;
+    }
+    
+    let lngLat = null;
+    if (mapRef.current) {
+      const map = mapRef.current.getMap();
+      const rect = mapRef.current.getContainer().getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const coord = map.unproject([x, y]);
+      lngLat = { lat: coord.lat, lng: coord.lng };
+    }
+    showMapContext({
+      x: e.clientX,
+      y: e.clientY,
+      lngLat
+    });
+  }, [showMapContext, mapRef, contextMenuEnabled]);
+
+  // Manual entity states
+  const [showManualEntityForm, setShowManualEntityForm] = useState(false);
+  const [manualEntityCoords, setManualEntityCoords] = useState<{ lat: number, lng: number } | undefined>(undefined);
+  // State for editing existing entity
+  const [editingManualEntity, setEditingManualEntity] = useState<ManualEntityData | null>(null);
+
+  const handleManualEntitySaved = () => {
+    setShowManualEntityForm(false);
+    setEditingManualEntity(null);
+    refreshManualEntities();
+  };
+
+  // Now modify the handleDeleteManualEntity function
+  const handleDeleteManualEntity = async (entityId: string) => {
+    try {
+      console.log(`MapContainer: Deleting manual entity ${entityId}`);
+      
+      // Temporarily disable context menus
+      setContextMenuEnabled(false);
+      
+      // Call the deleteManualEntity function from the hook
+      const success = await deleteManualEntity(entityId);
+      
+      // If successful and the entity was selected, clear the selection
+      if (success) {
+        if (selectedEntity && selectedEntity.id === entityId) {
+          setSelectedEntity(null);
+        }
+        // Hide any open context menus
+        hideEntityContext();
+        hideMapContext();
+        
+        console.log(`MapContainer: Successfully deleted entity ${entityId}`);
+      } else {
+        console.error(`Failed to delete entity ${entityId}`);
+      }
+      
+      // Re-enable context menus after a short delay
+      setTimeout(() => {
+        setContextMenuEnabled(true);
+        console.log('Context menus re-enabled');
+      }, 300);
+      
+      return success;
+    } catch (err) {
+      console.error('Error in handleDeleteManualEntity:', err);
+      // Make sure to re-enable context menus even if there's an error
+      setContextMenuEnabled(true);
+      return false;
+    }
+  };
+
+  const handleEditManualEntity = (entity: MilitaryEntity) => {
+    if (entity.isManual && entity._raw) {
+      // We know this is a manual entity with _raw data
+      setEditingManualEntity(entity._raw as ManualEntityData);
+    }
+  };
+
   return (
     <div className="h-full w-full relative" onContextMenu={handleContextMenu}>
       {/* Status Header */}
@@ -354,12 +473,12 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         <button 
           onClick={() => setShowLastAlerts(!showLastAlerts)}
           className="text-gray-400 hover:text-white transition-colors relative"
-          title={`${alerts.length} new hostile entities`}
+          title={`${allAlerts.length} new hostile entities`}
         >
           <Bell size={16} />
-          {alerts.length > 0 && (
+          {allAlerts.length > 0 && (
             <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-              <span className="text-[10px] font-medium text-white">{alerts.length}</span>
+              <span className="text-[10px] font-medium text-white">{allAlerts.length}</span>
             </div>
           )}
         </button>
@@ -404,10 +523,10 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         </div>
       </div>
 
-      {/* Alert Panels */}
-      <AlertPanel alerts={alerts} onDismiss={dismissAlert} />
+      {/* Alert Panels - Updated to show all alerts */}
+      <AlertPanel alerts={allAlerts} onDismiss={dismissAnyAlert} />
       <LastAlertsPanel 
-        alerts={alerts} 
+        alerts={allAlerts} 
         visible={showLastAlerts} 
         onClose={() => setShowLastAlerts(false)} 
       />
@@ -494,7 +613,7 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
         onClick={handleMapClick}
         onMouseMove={handleMouseMove}
-        onMouseOut={handleMouseOut}
+        onMouseOut={handleContextMenu}
         style={{ width: '100%', height: '100%' }}
       >
         {/* Render map shapes */}
@@ -506,8 +625,8 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
           />
         )}
         
-        {/* Render all entities as markers */}
-        {entities.map(entity => (
+        {/* Render all entities (including manual entities) as markers */}
+        {allEntities.map(entity => (
           <Marker
             key={entity.id}
             longitude={entity.position.longitude}
@@ -521,20 +640,18 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
             />
           </Marker>
         ))}
-        
-        {/* We're removing the location markers as requested */}
       </Map>
       
       {/* Entity Panel */}
       <EntityPanel
-        entities={entities}
+        entities={allEntities}
         visible={isPanelVisible}
         onClose={() => setIsPanelVisible(false)}
         onEntitySelect={(entity) => {
           setSelectedEntity(entity);
           mapRef.current?.flyTo({
             center: [entity.position.longitude, entity.position.latitude],
-            zoom: 8,
+            // zoom: 20,
             duration: 2000
           });
         }}
@@ -563,9 +680,27 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
       
       {/* Context Menus */}
       {mapContextVisible && (
-        <MapContextMenu 
-          position={mapContextPosition} 
+        <MapContextMenu
+          position={mapContextPosition}
           onClose={hideMapContext}
+          onAddManualEntity={() => {
+            setShowManualEntityForm(true);
+            // Ensure we have valid coordinates before setting them
+            if (mapContextPosition.lngLat && 
+                typeof mapContextPosition.lngLat.lat === 'number' && 
+                !isNaN(mapContextPosition.lngLat.lat) &&
+                typeof mapContextPosition.lngLat.lng === 'number' && 
+                !isNaN(mapContextPosition.lngLat.lng)) {
+              setManualEntityCoords({
+                lat: mapContextPosition.lngLat.lat,
+                lng: mapContextPosition.lngLat.lng
+              });
+            } else {
+              // Set to default map center if coordinates are invalid
+              setManualEntityCoords(mapCenter || { lat: 0, lng: 0 });
+            }
+            hideMapContext();
+          }}
         />
       )}
       
@@ -575,6 +710,8 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
           entity={selectedEntity}
           onClose={hideEntityContext}
           className="z-30"
+          onDelete={handleDeleteManualEntity}
+          onEdit={handleEditManualEntity}
         />
       )}
       
@@ -605,6 +742,23 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
           updateShape={updateShape}
           onPreviewShapeChange={setPreviewShape}
           initialShape={editingShape || undefined}
+        />
+      )}
+
+      {showManualEntityForm && (
+        <ManualEntityForm
+          lat={manualEntityCoords?.lat}
+          lng={manualEntityCoords?.lng}
+          onClose={() => setShowManualEntityForm(false)}
+          onSaved={handleManualEntitySaved}
+        />
+      )}
+
+      {editingManualEntity && (
+        <EditManualEntityForm
+          entity={editingManualEntity}
+          onClose={() => setEditingManualEntity(null)}
+          onSaved={handleManualEntitySaved}
         />
       )}
     </div>
