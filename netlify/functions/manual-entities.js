@@ -1,9 +1,5 @@
 // Import required modules
 const { Pool } = require('pg');
-const dotenv = require('dotenv');
-
-// Load environment variables
-dotenv.config();
 
 // Create pool connection to PostgreSQL
 const pool = new Pool({
