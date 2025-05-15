@@ -165,7 +165,7 @@ app.post('/api/shapes', async (req, res) => {
         fill_opacity,
         shape_data,
         is_enemy
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, type, name`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
       [
         shapeData.name,
         shapeData.description || '',
@@ -179,26 +179,9 @@ app.post('/api/shapes', async (req, res) => {
       ]
     );
     
-    console.log('Shape saved successfully:', result.rows[0]);
-    
-    // Return the created shape with all data for immediate display
-    const newShape = {
-      id: result.rows[0].id,
-      type: result.rows[0].type,
-      name: result.rows[0].name,
-      description: shapeData.description || '',
-      lineColor: shapeData.lineColor || '#1E88E5',
-      lineStyle: shapeData.lineStyle || 'solid',
-      fillColor: shapeData.fillColor || '#1E88E5',
-      fillOpacity: shapeData.fillOpacity || 0.3,
-      isEnemy: shapeData.isEnemy || false,
-      ...shapeData // Include all the shape-specific data (position, path, etc.)
-    };
-    
-    // Log the entire shape object for debugging
-    console.log('Sending shape response:', JSON.stringify(newShape, null, 2));
-    
-    res.status(201).json(newShape);
+    // Fetch the full row from the DB (including shape_data)
+    const dbShape = await query('SELECT * FROM map_shapes WHERE id = $1', [result.rows[0].id]);
+    res.status(201).json(dbShape.rows[0]);
   } catch (error) {
     console.error('Error creating shape:', error);
     res.status(500).json({ 
