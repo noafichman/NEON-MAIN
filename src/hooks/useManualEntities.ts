@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MilitaryEntity } from '../types/entities';
 
-// Dynamically determine API URL based on environment
-const API_URL = import.meta.env.PROD 
-  ? '/api' 
-  : 'http://localhost:3001/api';
+// Dynamically determine API URL and path based on environment
+const BASE_URL = import.meta.env.PROD 
+  ? '' 
+  : 'http://localhost:3001';
+
+const API_PATH = import.meta.env.PROD 
+  ? '/.netlify/functions/manual-entities' 
+  : '/api/manual-entities';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 
@@ -45,8 +49,9 @@ export const useManualEntities = () => {
 
   const fetchManualEntities = useCallback(async () => {
     try {
-      console.log('Fetching manual entities from:', `${API_URL}/manual-entities`);
-      const response = await fetch(`${API_URL}/manual-entities`);
+      const url = `${BASE_URL}${API_PATH}`;
+      console.log('Fetching manual entities from:', url);
+      const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -189,7 +194,8 @@ export const useManualEntities = () => {
       setLoading(true);
       console.log(`Deleting manual entity: ${entityId}`);
       
-      const response = await fetch(`${API_URL}/manual-entities/${entityId}`, {
+      const url = `${BASE_URL}${API_PATH}/${entityId}`;
+      const response = await fetch(url, {
         method: 'DELETE'
       });
       
@@ -219,7 +225,8 @@ export const useManualEntities = () => {
       setLoading(true);
       console.log(`Updating manual entity: ${entityData.id}`, entityData);
       
-      const response = await fetch(`${API_URL}/manual-entities/${entityData.id}`, {
+      const url = `${BASE_URL}${API_PATH}/${entityData.id}`;
+      const response = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entityData)
