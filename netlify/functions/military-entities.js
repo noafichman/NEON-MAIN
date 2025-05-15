@@ -65,8 +65,12 @@ export const handler = async (event, context) => {
         sidc += 'N'; // Neutral/Unknown
       }
       
-      // Positions 3-4: Symbol Set and Entity
-      sidc += 'GP'; // Ground/Land Equipment
+            
+      if (entity.id && entity.id.includes("UAV")) {
+        sidc += 'A'; // Air
+      } else {
+        sidc += 'GP'; // Ground/Land Equipment
+      }
       
       // Position 5: Entity Type
       sidc += 'I'; // Infantry
