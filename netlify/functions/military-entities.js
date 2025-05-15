@@ -1,25 +1,34 @@
-import { Pool } from 'pg';
+import pg from 'pg';
+const { Client } = pg;
 
-// Create a new pool using environment variables
-// Netlify will inject these from your site's environment variables
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+// Helper function to execute queries with a single connection
+async function runQuery(text, params) {
+  // Create a new client for each request
+  const client = new Client({
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT || '5432'),
+    database: process.env.DB_NAME,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    ssl: {
+      rejectUnauthorized: false
+    },
+    connectionTimeoutMillis: 5000 // how long to wait for connection
+  });
 
-async function query(text, params) {
   try {
-    const result = await pool.query(text, params);
+    console.log('Connecting to database...');
+    await client.connect();
+    console.log('Connected, executing query:', text);
+    const result = await client.query(text, params);
     return result;
   } catch (error) {
     console.error('Database query error:', error);
     throw error;
+  } finally {
+    // Always close the connection
+    console.log('Closing database connection');
+    await client.end();
   }
 }
 
@@ -41,7 +50,7 @@ export const handler = async (event, context) => {
 
   try {
     console.log('Fetching military entities');
-    const result = await query('SELECT * FROM c4i_table');
+    const result = await runQuery('SELECT * FROM c4i_table');
     
     const formattedEntities = result.rows.map(entity => {
       // Build SIDC based on threatLevel and echelon
