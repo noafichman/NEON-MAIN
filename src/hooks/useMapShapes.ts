@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MapShape } from '../types/shapes';
 
-// Dynamically determine API URL based on environment
-const API_URL = import.meta.env.PROD 
-  ? '/api' 
-  : 'http://localhost:3001/api';
+// Dynamically determine API URL and path based on environment
+const BASE_URL = import.meta.env.PROD 
+  ? '' 
+  : 'http://localhost:3001';
 
-console.log('Using API URL:', API_URL, 'Environment:', import.meta.env.MODE);
+const API_PATH = import.meta.env.PROD 
+  ? '/.netlify/functions/shapes' 
+  : '/api/shapes';
+
+console.log('Using API path:', API_PATH, 'Environment:', import.meta.env.MODE);
 
 export const useMapShapes = () => {
   const [shapes, setShapes] = useState<MapShape[]>([]);
@@ -18,33 +22,35 @@ export const useMapShapes = () => {
     try {
       setLoading(true);
       console.log('Fetching shapes from API');
-      const response = await fetch(`${API_URL}/shapes`);
+      const response = await fetch(`${BASE_URL}${API_PATH}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log(`Received ${data.length} shapes from API`);
+      console.log(`Received shapes from API:`, data);
       
       // Transform the raw data into our shape types
       const formattedShapes = data.map((shape: any) => {
+        // Add default values for mandatory properties
         const baseShape = {
           id: shape.id,
-          name: shape.name,
+          name: shape.name || 'Unnamed Shape',
           description: shape.description || '',
-          lineColor: shape.line_color,
-          lineStyle: shape.line_style as 'solid' | 'dashed' | 'dotted',
-          fillColor: shape.fill_color,
-          fillOpacity: shape.fill_opacity,
-          isEnemy: shape.is_enemy || false,
-          createdAt: shape.created_at,
-          updatedAt: shape.updated_at
+          lineColor: shape.lineColor || shape.line_color || '#FF0000',
+          lineStyle: (shape.lineStyle || shape.line_style || 'solid') as 'solid' | 'dashed' | 'dotted',
+          fillColor: shape.fillColor || shape.fill_color || '#FF000066',
+          fillOpacity: shape.fillOpacity || shape.fill_opacity || 0.4,
+          isEnemy: shape.isEnemy || shape.is_enemy || false,
+          createdAt: shape.createdAt || shape.created_at || new Date().toISOString(),
+          updatedAt: shape.updatedAt || shape.updated_at || new Date().toISOString()
         };
         
-        const shapeData = typeof shape.shape_data === 'string' 
-          ? JSON.parse(shape.shape_data) 
-          : shape.shape_data;
+        // Handle shape_data being either a string or an object
+        const shapeData = shape.shape_data 
+          ? (typeof shape.shape_data === 'string' ? JSON.parse(shape.shape_data) : shape.shape_data)
+          : shape;
         
         try {
           switch (shape.type) {
@@ -52,9 +58,9 @@ export const useMapShapes = () => {
               return {
                 ...baseShape,
                 type: 'point' as const,
-                position: {
-                  latitude: shapeData.position_lat,
-                  longitude: shapeData.position_lng
+                position: shape.position || {
+                  latitude: shapeData.position_lat || shapeData.latitude || 0,
+                  longitude: shapeData.position_lng || shapeData.longitude || 0
                 }
               };
               
@@ -62,25 +68,25 @@ export const useMapShapes = () => {
               return {
                 ...baseShape,
                 type: 'circle' as const,
-                center: {
-                  latitude: shapeData.center_lat,
-                  longitude: shapeData.center_lng
+                center: shape.center || {
+                  latitude: shapeData.center_lat || shapeData.latitude || 0,
+                  longitude: shapeData.center_lng || shapeData.longitude || 0
                 },
-                radius: shapeData.radius
+                radius: shape.radius || shapeData.radius || 1000
               };
               
             case 'rectangle':
               return {
                 ...baseShape,
                 type: 'rectangle' as const,
-                bounds: {
+                bounds: shape.bounds || {
                   northEast: {
-                    latitude: shapeData.ne_lat,
-                    longitude: shapeData.ne_lng
+                    latitude: shapeData.ne_lat || (shapeData.northEast && shapeData.northEast.latitude) || 0,
+                    longitude: shapeData.ne_lng || (shapeData.northEast && shapeData.northEast.longitude) || 0
                   },
                   southWest: {
-                    latitude: shapeData.sw_lat,
-                    longitude: shapeData.sw_lng
+                    latitude: shapeData.sw_lat || (shapeData.southWest && shapeData.southWest.latitude) || 0,
+                    longitude: shapeData.sw_lng || (shapeData.southWest && shapeData.southWest.longitude) || 0
                   }
                 }
               };
@@ -89,33 +95,33 @@ export const useMapShapes = () => {
               return {
                 ...baseShape,
                 type: 'polyline' as const,
-                path: typeof shapeData.path === 'string' 
+                path: shape.path || (typeof shapeData.path === 'string' 
                   ? JSON.parse(shapeData.path) 
-                  : shapeData.path
+                  : shapeData.path || [])
               };
               
             case 'polygon':
               return {
                 ...baseShape,
                 type: 'polygon' as const,
-                path: typeof shapeData.path === 'string' 
+                path: shape.path || (typeof shapeData.path === 'string' 
                   ? JSON.parse(shapeData.path) 
-                  : shapeData.path
+                  : shapeData.path || [])
               };
               
             case 'arrow':
               return {
                 ...baseShape,
                 type: 'arrow' as const,
-                start: {
-                  latitude: shapeData.start_lat,
-                  longitude: shapeData.start_lng
+                start: shape.start || {
+                  latitude: shapeData.start_lat || (shapeData.start && shapeData.start.latitude) || 0,
+                  longitude: shapeData.start_lng || (shapeData.start && shapeData.start.longitude) || 0
                 },
-                end: {
-                  latitude: shapeData.end_lat,
-                  longitude: shapeData.end_lng
+                end: shape.end || {
+                  latitude: shapeData.end_lat || (shapeData.end && shapeData.end.latitude) || 0,
+                  longitude: shapeData.end_lng || (shapeData.end && shapeData.end.longitude) || 0
                 },
-                headSize: shapeData.head_size
+                headSize: shape.headSize || shapeData.head_size || 10
               };
               
             default:
@@ -150,7 +156,7 @@ export const useMapShapes = () => {
         return false;
       }
       
-      const response = await fetch(`${API_URL}/shapes`, {
+      const response = await fetch(`${BASE_URL}${API_PATH}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -259,24 +265,22 @@ export const useMapShapes = () => {
     }
   };
 
-  // Delete a shape and remove from state immediately
+  // Delete an existing shape
   const deleteShape = async (shapeId: string) => {
     try {
-      const response = await fetch(`${API_URL}/shapes/${shapeId}`, {
+      const response = await fetch(`${BASE_URL}${API_PATH}/${shapeId}`, {
         method: 'DELETE'
       });
-      if (!response.ok && response.status !== 404) {
+      
+      if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      setShapes(prev => {
-        const updated = prev.filter(s => s.id !== shapeId);
-        console.log('Shapes in state after delete:', updated.map(s => s.id));
-        return updated;
-      });
+      
+      // Remove the shape from state
+      setShapes(prevShapes => prevShapes.filter(shape => shape.id !== shapeId));
       return true;
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error deleting shape:', err);
-      setError('Failed to delete shape. Please try again later.');
       return false;
     }
   };
@@ -292,7 +296,7 @@ export const useMapShapes = () => {
         return false;
       }
       
-      const response = await fetch(`${API_URL}/shapes/${shapeId}`, {
+      const response = await fetch(`${BASE_URL}${API_PATH}/${shapeId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -301,20 +305,12 @@ export const useMapShapes = () => {
       });
       
       if (!response.ok) {
-        const errorText = await response.text().catch(() => 'No response text');
-        console.error(`HTTP error updating shape! status: ${response.status}`, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const result = await response.json();
-      console.log('Shape update API result:', JSON.stringify(result, null, 2));
       
-      // Ensure the result has the correct type
-      if (!result.type && shapeData.type) {
-        console.log('API result missing type, using type from original data:', shapeData.type);
-        result.type = shapeData.type;
-      }
-      
+      // Update local state with updated shape
       let updatedShape;
       try {
         updatedShape = fetchShapeFromApiResult(result);

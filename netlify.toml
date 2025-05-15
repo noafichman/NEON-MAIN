@@ -14,6 +14,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/shapes/*"
+  to = "/.netlify/functions/shapes/:splat"
+  status = 200
+
+[[redirects]]
   from = "/api/manual-entities"
   to = "/.netlify/functions/manual-entities"
   status = 200
