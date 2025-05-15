@@ -30,12 +30,20 @@ const ShapesPanel: React.FC<ShapesPanelProps> = ({ shapes, onShapeEdit, onShapeD
           return (
             <div
               key={shape.id}
-              className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-800 transition-colors border-b border-white/10`}
+              className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-800 transition-colors border-b border-white/10 ${shape.isEnemy ? 'bg-red-950/20' : ''}`}
             >
-              <Icon size={20} className="text-green-400" />
+              <Icon 
+                size={20} 
+                className={shape.isEnemy ? "text-red-600" : "text-green-400"} 
+              />
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-xs text-white truncate">{shape.name}</div>
-                <div className="text-[10px] text-gray-400 truncate">{shape.type.charAt(0).toUpperCase() + shape.type.slice(1)}</div>
+                <div className={`font-medium text-xs ${shape.isEnemy ? 'text-red-300' : 'text-white'} truncate`}>
+                  {shape.name} {shape.isEnemy && '⚠️'}
+                </div>
+                <div className="text-[10px] text-gray-400 truncate">
+                  {shape.type.charAt(0).toUpperCase() + shape.type.slice(1)} 
+                  {shape.isEnemy && <span className="text-red-400 ml-1">- Enemy</span>}
+                </div>
               </div>
               <button
                 className="p-1 hover:bg-gray-700/50 rounded-md transition-colors"

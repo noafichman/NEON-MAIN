@@ -40,6 +40,7 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
   const [lineStyle, setLineStyle] = useState<'solid' | 'dashed' | 'dotted'>(initialShape?.lineStyle || 'solid');
   const [fillColor, setFillColor] = useState(initialShape?.fillColor || '#1E88E5');
   const [fillOpacity, setFillOpacity] = useState(initialShape?.fillOpacity ?? 0.3);
+  const [isEnemy, setIsEnemy] = useState(initialShape?.isEnemy || false);
   
   // Shape-specific fields
   const [pickingPoints, setPickingPoints] = useState(initialShape ? false : true);
@@ -124,6 +125,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
       onPreviewShapeChange(null);
       return;
     }
+    
+    // Force enemy styling
+    const effectiveLineColor = isEnemy ? '#8B0000' : lineColor;
+    const effectiveLineStyle = isEnemy ? 'dashed' : lineStyle;
+    
     switch (type) {
       case 'point':
         preview = {
@@ -131,10 +137,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           position: points[0]
         };
         break;
@@ -144,10 +151,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           center: points[0],
           radius
         };
@@ -161,10 +169,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           bounds: {
             northEast: { latitude: lats[0], longitude: lngs[1] },
             southWest: { latitude: lats[1], longitude: lngs[0] }
@@ -178,10 +187,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           start: points[0],
           end: points[1],
           headSize: 10
@@ -194,10 +204,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           path: points
         };
         break;
@@ -208,16 +219,17 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           path: points
         };
         break;
     }
     onPreviewShapeChange(preview);
-  }, [type, name, description, lineColor, lineStyle, fillColor, fillOpacity, radius, points, onPreviewShapeChange]);
+  }, [type, name, description, lineColor, lineStyle, fillColor, fillOpacity, radius, points, isEnemy, onPreviewShapeChange]);
 
   // Update form fields if initialShape changes (for hot edit)
   useEffect(() => {
@@ -228,6 +240,7 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
     setLineStyle(initialShape.lineStyle || 'solid');
     setFillColor(initialShape.fillColor || '#1E88E5');
     setFillOpacity(initialShape.fillOpacity ?? 0.3);
+    setIsEnemy(initialShape.isEnemy || false);
     setPickingPoints(false);
     if (initialShape.type === 'point') setPoints([initialShape.position]);
     else if (initialShape.type === 'circle') setPoints([initialShape.center]);
@@ -237,6 +250,16 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
     if (initialShape.type === 'circle') setRadius(initialShape.radius);
   }, [initialShape]);
 
+  // Handle enemy toggle change
+  const handleEnemyToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsEnemy(e.target.checked);
+    if (e.target.checked) {
+      // Set enemy styling - dark red dashed line
+      setLineColor('#8B0000');
+      setLineStyle('dashed');
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,6 +267,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
       alert('Please select at least one point on the map.');
       return;
     }
+    
+    // Force enemy styling
+    const effectiveLineColor = isEnemy ? '#8B0000' : lineColor;
+    const effectiveLineStyle = isEnemy ? 'dashed' : lineStyle;
+    
     let shapeData: any;
     switch (type) {
       case 'point':
@@ -251,10 +279,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           position: points[0]
         };
         break;
@@ -263,10 +292,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           center: points[0],
           radius
         };
@@ -282,10 +312,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           bounds: {
             northEast: { latitude: lats[0], longitude: lngs[1] },
             southWest: { latitude: lats[1], longitude: lngs[0] }
@@ -301,10 +332,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           start: points[0],
           end: points[1],
           headSize: 10
@@ -324,10 +356,11 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
           type,
           name,
           description,
-          lineColor,
-          lineStyle,
+          lineColor: effectiveLineColor,
+          lineStyle: effectiveLineStyle,
           fillColor,
           fillOpacity,
+          isEnemy,
           path: points
         };
         break;
@@ -493,12 +526,14 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
                 value={lineColor}
                 onChange={(e) => setLineColor(e.target.value)}
                 className="p-0 bg-transparent border-0 w-8 h-8 rounded-md overflow-hidden"
+                disabled={isEnemy}
               />
               <input
                 type="text"
                 value={lineColor}
                 onChange={(e) => setLineColor(e.target.value)}
-                className="ml-2 p-2 bg-gray-800/70 border border-gray-700/50 rounded-md text-white w-24"
+                className={`ml-2 p-2 bg-gray-800/70 border border-gray-700/50 rounded-md text-white w-24 ${isEnemy ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isEnemy}
               />
             </div>
           </div>
@@ -510,7 +545,8 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
             <select
               value={lineStyle}
               onChange={(e) => setLineStyle(e.target.value as 'solid' | 'dashed' | 'dotted')}
-              className="w-full p-2 bg-gray-800/70 border border-gray-700/50 rounded-md text-white"
+              className={`w-full p-2 bg-gray-800/70 border border-gray-700/50 rounded-md text-white ${isEnemy ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isEnemy}
             >
               <option value="solid">Solid</option>
               <option value="dashed">Dashed</option>
@@ -558,6 +594,29 @@ const ShapeForm: React.FC<ShapeFormProps> = ({ type, mapRef, onClose, createShap
                 {fillOpacity.toFixed(1)}
               </div>
             </div>
+          </div>
+        )}
+        
+        {/* Enemy Toggle - only for specific shape types */}
+        {(type === 'point' || type === 'circle' || type === 'rectangle' || type === 'polygon') && (
+          <div className="p-3 bg-gray-800/70 rounded-lg">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="enemy-toggle"
+                checked={isEnemy}
+                onChange={handleEnemyToggle}
+                className="w-4 h-4 text-red-600 bg-gray-700 border-gray-600 rounded focus:ring-red-600 focus:ring-2"
+              />
+              <label htmlFor="enemy-toggle" className="ml-2 text-sm font-medium text-gray-300">
+                Mark as Enemy
+              </label>
+            </div>
+            {isEnemy && (
+              <p className="mt-2 text-xs text-red-400">
+                Enemy shapes are displayed with dark red dashed lines.
+              </p>
+            )}
           </div>
         )}
         

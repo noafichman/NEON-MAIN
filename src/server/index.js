@@ -163,8 +163,9 @@ app.post('/api/shapes', async (req, res) => {
         line_style, 
         fill_color, 
         fill_opacity,
-        shape_data
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, type, name`,
+        shape_data,
+        is_enemy
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, type, name`,
       [
         shapeData.name,
         shapeData.description || '',
@@ -173,7 +174,8 @@ app.post('/api/shapes', async (req, res) => {
         shapeData.lineStyle || 'solid',
         shapeData.fillColor || '#1E88E5',
         shapeData.fillOpacity || 0.3,
-        JSON.stringify(positionData)
+        JSON.stringify(positionData),
+        shapeData.isEnemy || false
       ]
     );
     
@@ -189,6 +191,7 @@ app.post('/api/shapes', async (req, res) => {
       lineStyle: shapeData.lineStyle || 'solid',
       fillColor: shapeData.fillColor || '#1E88E5',
       fillOpacity: shapeData.fillOpacity || 0.3,
+      isEnemy: shapeData.isEnemy || false,
       ...shapeData // Include all the shape-specific data (position, path, etc.)
     };
     
@@ -350,8 +353,9 @@ app.put('/api/shapes/:id', async (req, res) => {
         fill_color = $5,
         fill_opacity = $6,
         shape_data = $7,
+        is_enemy = $8,
         updated_at = NOW()
-      WHERE id = $8`,
+      WHERE id = $9`,
       [
         shapeData.name,
         shapeData.description || '',
@@ -360,6 +364,7 @@ app.put('/api/shapes/:id', async (req, res) => {
         shapeData.fillColor || '#1E88E5',
         shapeData.fillOpacity || 0.3,
         JSON.stringify(positionData),
+        shapeData.isEnemy || false,
         id
       ]
     );
@@ -374,6 +379,7 @@ app.put('/api/shapes/:id', async (req, res) => {
       lineStyle: shapeData.lineStyle || 'solid',
       fillColor: shapeData.fillColor || '#1E88E5',
       fillOpacity: shapeData.fillOpacity || 0.3,
+      isEnemy: shapeData.isEnemy || false,
       ...shapeData // Include all the shape-specific data
     };
     
@@ -406,6 +412,66 @@ app.get('/api/video-state', async (req, res) => {
     console.error('Error fetching video state:', error);
     res.status(500).json({ 
       error: 'Failed to fetch video state',
+      details: error.message 
+    });
+  }
+});
+
+// Chat endpoint with improved responses
+app.post('/api/chat', (req, res) => {
+  try {
+    const { message } = req.body;
+    console.log('\n\n======== CHAT INTERACTION ========');
+    console.log('USER MESSAGE:', message);
+    
+    // Default response
+    let reply = "I'm not sure I understand. Can you please rephrase your question?";
+    
+    // Simple message processing - convert to lowercase for easier matching
+    const lowerMessage = message.toLowerCase();
+    
+    // Check for different types of questions or keywords
+    if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+      reply = "Hello! I'm your military tracking assistant. How can I help you today?";
+    }
+    else if (lowerMessage.includes('help')) {
+      reply = "I can help you with information about military units, geographic locations, tactical situations, and system features. What would you like to know?";
+    }
+    else if (lowerMessage.includes('weather')) {
+      reply = "Current weather conditions are displayed in the information panel at the top of the map. The conditions are updated based on the map's center location.";
+    }
+    else if (lowerMessage.includes('unit') || lowerMessage.includes('force') || lowerMessage.includes('troop')) {
+      reply = "All active military units are displayed on the map with their current positions. You can click on any unit marker to see detailed information.";
+    }
+    else if (lowerMessage.includes('enemy') || lowerMessage.includes('hostile') || lowerMessage.includes('threat')) {
+      reply = "Hostile forces are marked in red on the map. Current intelligence indicates multiple hostile elements in the northeastern quadrant. Exercise caution in that area.";
+    }
+    else if (lowerMessage.includes('location') || lowerMessage.includes('where') || lowerMessage.includes('position')) {
+      reply = "You can see all unit positions on the main map. Use the search bar at the top-right to locate specific units or geographic locations.";
+    }
+    else if (lowerMessage.includes('mission') || lowerMessage.includes('objective')) {
+      reply = "Current mission objectives: 1) Secure the perimeter around marked zones, 2) Monitor all movement in the region, 3) Report any suspicious activity immediately.";
+    }
+    else if (lowerMessage.includes('map')) {
+      reply = "The map interface shows all units, geographic features, and tactical information. You can zoom in/out, add shapes, and view detailed information by clicking on any element.";
+    }
+    else if (lowerMessage.includes('thank')) {
+      reply = "You're welcome. Please let me know if you need any further assistance.";
+    }
+    else if (lowerMessage.includes('bye') || lowerMessage.includes('goodbye')) {
+      reply = "Goodbye. Contact me anytime if you need assistance.";
+    }
+    
+    // Print the exact response to the log
+    console.log('CHAT RESPONSE:', reply);
+    console.log('====================================\n\n');
+    
+    // Send response
+    res.json({ reply });
+  } catch (error) {
+    console.error('Error handling chat message:', error);
+    res.status(500).json({ 
+      error: 'Failed to process chat message',
       details: error.message 
     });
   }

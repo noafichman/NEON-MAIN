@@ -11,6 +11,7 @@ export interface BaseShape {
   lineStyle: 'solid' | 'dashed' | 'dotted';
   fillColor: string;
   fillOpacity: number;
+  isEnemy: boolean;
   createdAt: string;
   updatedAt: string;
 }

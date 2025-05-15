@@ -46,9 +46,7 @@ interface VideoModalProps {
 }
 
 const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, isOpen, onClose }) => {
-  if (!isOpen) return null;
-
-  const [position, setPosition] = useState({ x: 20, y: 20 });
+  const [position, setPosition] = useState({ x: 1404, y: 118 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [playerReady, setPlayerReady] = useState(false);
@@ -272,6 +270,12 @@ const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, isOpen, onClose }) =>
     
     return null;
   };
+
+  // Handle rendering control
+  if (!isOpen) {
+    // When closed, maintain the player but hide the UI
+    return <div className="hidden" id="youtube-player"></div>;
+  }
 
   return (
     <div 

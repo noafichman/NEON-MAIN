@@ -10,7 +10,7 @@ import { useMilitaryEntities } from '../../hooks/useMilitaryEntities';
 import { useMapShapes } from '../../hooks/useMapShapes';
 import { MilitaryEntity } from '../../types/entities';
 import { MapShape, Position } from '../../types/shapes';
-import { Search, Wifi, Bell, Menu, Settings, MessageSquare, Calendar, Clock, Video, Image, FileText, PenTool, Crosshair } from 'lucide-react';
+import { Search, Wifi, Bell, Menu, Settings, MessageSquare, Calendar, Clock, Video, Image, FileText, PenTool, Crosshair, Navigation, Globe } from 'lucide-react';
 import AlertPanel from '../alerts/AlertPanel';
 import LastAlertsPanel from '../alerts/LastAlertsPanel';
 import ShapesMenu from './shapes/ShapesMenu';
@@ -18,6 +18,10 @@ import ShapeForm from './shapes/ShapeForm';
 import ShapeRenderer from './shapes/ShapeRenderer';
 import VideoModal from '../video/VideoModal';
 import SearchBar from '../search/SearchBar';
+import WeatherDisplay from '../weather/WeatherDisplay';
+import { Location } from '../../utils/locationService';
+import { GeocodingResult } from '../../hooks/useGeocoding';
+import ChatPanel from '../chat/ChatPanel';
 
 // Default map settings
 const INITIAL_VIEW_STATE = {
@@ -35,9 +39,9 @@ interface MapContainerProps {
 interface SearchResult {
   id: string;
   name: string;
-  type: 'entity' | 'shape';
+  type: 'entity' | 'shape' | 'location' | 'geocoded';
   category?: string;
-  originalObject: MilitaryEntity | MapShape;
+  originalObject: MilitaryEntity | MapShape | Location | GeocodingResult;
 }
 
 const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelVisible }) => {
@@ -52,8 +56,18 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
   const [previewShape, setPreviewShape] = useState<MapShape | null>(null);
   const [editingShape, setEditingShape] = useState<MapShape | null>(null);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMessagesOpen, setIsMessagesOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isClockOpen, setIsClockOpen] = useState(false);
+  const [isImagesOpen, setIsImagesOpen] = useState(false);
+  const [isFilesOpen, setIsFilesOpen] = useState(false);
   const youtubeVideoUrl = "https://youtu.be/eRQ-DOe-68w?t=560";
   const [mousePosition, setMousePosition] = useState<{ lat: number, lng: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number, lng: number }>({
+    lat: INITIAL_VIEW_STATE.latitude,
+    lng: INITIAL_VIEW_STATE.longitude
+  });
   
   // Update time every second
   useEffect(() => {
@@ -63,8 +77,42 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
     return () => clearInterval(timer);
   }, []);
   
+  // Update map center position every 10 minutes or when map moves
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
+    // Get current center on map load
+    const map = mapRef.current.getMap();
+    const center = map.getCenter();
+    setMapCenter({
+      lat: center.lat,
+      lng: center.lng
+    });
+    
+    // Set up event listener for map movement end
+    const updateMapCenter = () => {
+      const center = map.getCenter();
+      setMapCenter({
+        lat: center.lat,
+        lng: center.lng
+      });
+    };
+    
+    map.on('moveend', updateMapCenter);
+    
+    // Also update periodically even if the map hasn't moved
+    const intervalId = setInterval(updateMapCenter, 10 * 60 * 1000);
+    
+    return () => {
+      map.off('moveend', updateMapCenter);
+      clearInterval(intervalId);
+    };
+  }, [mapRef.current]);
+  
   // State for selected entity and info display
   const [selectedEntity, setSelectedEntity] = useState<MilitaryEntity | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [selectedGeocodedLocation, setSelectedGeocodedLocation] = useState<GeocodingResult | null>(null);
   
   // Map context menu
   const { 
@@ -211,6 +259,11 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
 
   // Handle search result selection
   const handleSearchResultSelect = (result: SearchResult) => {
+    // Clear all selections first
+    setSelectedEntity(null);
+    setSelectedLocation(null);
+    setSelectedGeocodedLocation(null);
+    
     if (result.type === 'entity') {
       const entity = result.originalObject as MilitaryEntity;
       setSelectedEntity(entity);
@@ -233,6 +286,52 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
       // If we want to show the shape details, we could set editingShape here
       // or create a specific shape details panel
       setEditingShape(shape);
+    } else if (result.type === 'location') {
+      const location = result.originalObject as Location;
+      setSelectedLocation(location);
+      
+      mapRef.current?.flyTo({
+        center: [location.longitude, location.latitude],
+        zoom: 18,
+        duration: 1500
+      });
+    } else if (result.type === 'geocoded') {
+      const location = result.originalObject as GeocodingResult;
+      setSelectedGeocodedLocation(location);
+      
+      mapRef.current?.flyTo({
+        center: [location.coordinates.longitude, location.coordinates.latitude],
+        zoom: getZoomLevelForPlaceType(location.placeType),
+        duration: 1500
+      });
+    }
+  };
+  
+  // Helper to determine appropriate zoom level based on place type
+  const getZoomLevelForPlaceType = (placeType: string): number => {
+    switch (placeType) {
+      case 'country':
+        return 5;
+      case 'region':
+      case 'state':
+      case 'province':
+        return 7;
+      case 'district':
+      case 'county':
+        return 9;
+      case 'place':
+      case 'city':
+      case 'town':
+        return 12;
+      case 'locality':
+      case 'neighborhood':
+        return 14;
+      case 'address':
+        return 18;
+      case 'poi':
+        return 19;
+      default:
+        return 13;
     }
   };
 
@@ -243,6 +342,7 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         <SearchBar 
           entities={entities} 
           shapes={shapes}
+          mapCenter={mapCenter}
           onSelectResult={handleSearchResultSelect}
         />
         <button className="text-green-400 hover:text-green-300 transition-colors">
@@ -265,21 +365,42 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         </button>
       </div>
 
+      {/* Video fixed below search bar */}
+      {isVideoModalOpen && (
+        <div className="absolute top-16 right-4 z-40">
+          <VideoModal 
+            videoUrl={youtubeVideoUrl}
+            isOpen={isVideoModalOpen}
+            onClose={() => setIsVideoModalOpen(false)}
+          />
+        </div>
+      )}
+
       {/* Position Display */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-gray-900/40 backdrop-blur-sm border border-gray-800/30 rounded-lg">
-        <div className="flex items-center gap-2 text-sm">
-          <Crosshair size={14} className="text-gray-400" />
-          <div className="font-mono text-gray-300">
-            {mousePosition ? (
-              <>
-                <span>Lat: {formatCoordinate(mousePosition.lat)}</span>
-                <span className="mx-2">|</span>
-                <span>Lng: {formatCoordinate(mousePosition.lng)}</span>
-              </>
-            ) : (
-              <span className="text-gray-500">Move cursor over map</span>
-            )}
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <Crosshair size={14} className="text-gray-400" />
+            <div className="font-mono text-gray-300">
+              {mousePosition ? (
+                <>
+                  <span>Lat: {formatCoordinate(mousePosition.lat)}</span>
+                  <span className="mx-2">|</span>
+                  <span>Lng: {formatCoordinate(mousePosition.lng)}</span>
+                </>
+              ) : (
+                <span className="text-gray-500">Move cursor over map</span>
+              )}
+            </div>
           </div>
+          
+          <div className="w-px h-6 bg-white/10"></div>
+          
+          {/* Weather display component using map center coordinates */}
+          <WeatherDisplay 
+            latitude={mapCenter.lat} 
+            longitude={mapCenter.lng} 
+          />
         </div>
       </div>
 
@@ -291,55 +412,79 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         onClose={() => setShowLastAlerts(false)} 
       />
 
+      {/* Chat Panel */}
+      <ChatPanel
+        visible={isMessagesOpen}
+        onClose={() => setIsMessagesOpen(false)}
+      />
+
       {/* Bottom Action Bar */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900/40 backdrop-blur-sm border border-gray-800/30 rounded-lg">
         <button 
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors"
+          className={`p-2 ${isPanelVisible ? 'text-blue-400 bg-gray-800/50' : 'text-gray-400'} hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors`}
           onClick={() => setIsPanelVisible(!isPanelVisible)}
+          title="Toggle Entity Panel"
         >
           <Menu size={18} />
         </button>
-        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+        <button 
+          className={`p-2 ${isSettingsOpen ? 'text-blue-400 bg-gray-800/50' : 'text-gray-400'} hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors`}
+          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+          title="Settings"
+        >
           <Settings size={18} />
         </button>
-        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+        <button 
+          className={`p-2 ${isMessagesOpen ? 'text-blue-400 bg-gray-800/50' : 'text-gray-400'} hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors`}
+          onClick={() => setIsMessagesOpen(!isMessagesOpen)}
+          title="Messages"
+        >
           <MessageSquare size={18} />
         </button>
         <div className="w-px h-6 bg-white/10"></div>
         <button 
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors"
+          className={`p-2 ${showShapesMenu ? 'text-blue-400 bg-gray-800/50' : 'text-gray-400'} hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors`}
           onClick={handleShapesButtonClick}
           title="Add Map Shapes"
         >
           <PenTool size={18} />
         </button>
-        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+        <button 
+          className={`p-2 ${isCalendarOpen ? 'text-blue-400 bg-gray-800/50' : 'text-gray-400'} hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors`}
+          onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+          title="Calendar"
+        >
           <Calendar size={18} />
         </button>
-        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+        <button 
+          className={`p-2 ${isClockOpen ? 'text-blue-400 bg-gray-800/50' : 'text-gray-400'} hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors`}
+          onClick={() => setIsClockOpen(!isClockOpen)}
+          title="Clock"
+        >
           <Clock size={18} />
         </button>
         <button 
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors"
-          onClick={() => setIsVideoModalOpen(true)}
-          title="Watch Video"
+          className={`p-2 ${isVideoModalOpen ? 'text-blue-400 bg-gray-800/50' : 'text-gray-400'} hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors`}
+          onClick={() => setIsVideoModalOpen(!isVideoModalOpen)}
+          title={isVideoModalOpen ? "Hide Video" : "Show Video"}
         >
           <Video size={18} />
         </button>
-        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+        <button 
+          className={`p-2 ${isImagesOpen ? 'text-blue-400 bg-gray-800/50' : 'text-gray-400'} hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors`}
+          onClick={() => setIsImagesOpen(!isImagesOpen)}
+          title="Images"
+        >
           <Image size={18} />
         </button>
-        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+        <button 
+          className={`p-2 ${isFilesOpen ? 'text-blue-400 bg-gray-800/50' : 'text-gray-400'} hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors`}
+          onClick={() => setIsFilesOpen(!isFilesOpen)}
+          title="Files"
+        >
           <FileText size={18} />
         </button>
       </div>
-
-      {/* Video Modal */}
-      <VideoModal 
-        videoUrl={youtubeVideoUrl}
-        isOpen={isVideoModalOpen}
-        onClose={() => setIsVideoModalOpen(false)}
-      />
 
       <Map
         ref={mapRef}
@@ -376,6 +521,8 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
             />
           </Marker>
         ))}
+        
+        {/* We're removing the location markers as requested */}
       </Map>
       
       {/* Entity Panel */}

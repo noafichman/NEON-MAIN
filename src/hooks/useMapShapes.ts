@@ -35,6 +35,7 @@ export const useMapShapes = () => {
           lineStyle: shape.line_style as 'solid' | 'dashed' | 'dotted',
           fillColor: shape.fill_color,
           fillOpacity: shape.fill_opacity,
+          isEnemy: shape.is_enemy || false,
           createdAt: shape.created_at,
           updatedAt: shape.updated_at
         };
@@ -256,6 +257,7 @@ export const useMapShapes = () => {
       lineStyle: shape.lineStyle || shape.line_style,
       fillColor: shape.fillColor || shape.fill_color,
       fillOpacity: shape.fillOpacity || shape.fill_opacity,
+      isEnemy: shape.isEnemy || shape.is_enemy || false,
       createdAt: shape.created_at,
       updatedAt: shape.updated_at
     };
