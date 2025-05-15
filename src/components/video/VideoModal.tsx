@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Move, PlayCircle, PauseCircle, StopCircle } from 'lucide-react';
 import useVideoState from '../../hooks/useVideoState';
+import videoGif from '../../assets/video.gif';
 
 // Define YouTube API types
 declare global {
@@ -236,16 +237,13 @@ const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, isOpen, onClose }) =>
         });
       }
     };
-
     const handleMouseUp = () => {
       setIsDragging(false);
     };
-
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }
-
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -259,7 +257,6 @@ const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, isOpen, onClose }) =>
   // Function to show state icon
   const renderStateIcon = () => {
     if (isLoading) return null;
-    
     if (videoState === 'playing') {
       return <PlayCircle size={16} className="text-green-400" />;
     } else if (videoState === 'paused') {
@@ -267,14 +264,11 @@ const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, isOpen, onClose }) =>
     } else if (videoState === 'stopped') {
       return <StopCircle size={16} className="text-red-400" />;
     }
-    
     return null;
   };
 
-  // Handle rendering control
   if (!isOpen) {
-    // When closed, maintain the player but hide the UI
-    return <div className="hidden" id="youtube-player"></div>;
+    return null;
   }
 
   return (
@@ -310,12 +304,18 @@ const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, isOpen, onClose }) =>
           </button>
         </div>
       </div>
-      
-      <div className="w-full h-[calc(100%-32px)] relative">
-        <div id="youtube-player" className="w-full h-full"></div>
-        
-        {/* No Signal overlay */}
-        {showNoSignal && (
+      <div className="w-full h-[calc(100%-32px)] relative flex items-center justify-center bg-black">
+        {/* Show GIF only when playing */}
+        {videoState === 'playing' && (
+          <img
+            src={videoGif}
+            alt="Live Military Feed"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            draggable={false}
+          />
+        )}
+        {/* No Signal overlay when not playing */}
+        {videoState !== 'playing' && (
           <div className="absolute inset-0 bg-black flex items-center justify-center z-10">
             <div className="flex flex-col items-center">
               <div className="text-white text-lg font-bold tracking-widest">NO SIGNAL</div>

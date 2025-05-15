@@ -195,6 +195,9 @@ app.post('/api/shapes', async (req, res) => {
       ...shapeData // Include all the shape-specific data (position, path, etc.)
     };
     
+    // Log the entire shape object for debugging
+    console.log('Sending shape response:', JSON.stringify(newShape, null, 2));
+    
     res.status(201).json(newShape);
   } catch (error) {
     console.error('Error creating shape:', error);
