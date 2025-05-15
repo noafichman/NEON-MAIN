@@ -103,6 +103,13 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
   // Combine regular and manual entities
   const allEntities = [...entities, ...manualEntities];
   
+  // Add debug logging
+  useEffect(() => {
+    console.log('Regular entities:', entities.length, entities);
+    console.log('Manual entities:', manualEntities.length, manualEntities);
+    console.log('Combined entities:', allEntities.length, allEntities);
+  }, [entities, manualEntities, allEntities]);
+  
   // Combined alerts for both regular and manual entities
   const allAlerts = [...alerts, ...manualAlerts];
   const dismissAnyAlert = (alertId: string) => {

@@ -47,7 +47,7 @@ interface VideoModalProps {
 }
 
 const VideoModal: React.FC<VideoModalProps> = ({ videoUrl, isOpen, onClose }) => {
-  const [position, setPosition] = useState({ x: 1404, y: 118 });
+  const [position, setPosition] = useState({ x: 728, y: 118 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [playerReady, setPlayerReady] = useState(false);

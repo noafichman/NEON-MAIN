@@ -45,12 +45,28 @@ export const useManualEntities = () => {
 
   const fetchManualEntities = useCallback(async () => {
     try {
-      console.log('Fetching manual entities');
+      console.log('Fetching manual entities from:', `${API_URL}/manual-entities`);
       const response = await fetch(`${API_URL}/manual-entities`);
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
+      
+      // Get response as text first for debugging
+      const responseText = await response.text();
+      console.log('Manual entities raw response:', responseText);
+      
+      // Parse the response
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Error parsing manual entities response:', parseError);
+        throw new Error(`Failed to parse response: ${responseText}`);
+      }
+      
+      console.log('Manual entities parsed response:', data);
+      console.log(`Found ${data.length} manual entities`);
       
       // Check for new hostile entities
       let newAlerts: ManualEntityAlert[] = [];

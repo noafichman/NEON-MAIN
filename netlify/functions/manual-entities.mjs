@@ -24,6 +24,12 @@ async function query(text, params) {
 }
 
 export const handler = async (event, context) => {
+  // Log all the request details for debugging
+  console.log('Manual entities function called');
+  console.log('HTTP Method:', event.httpMethod);
+  console.log('Path:', event.path);
+  console.log('Headers:', JSON.stringify(event.headers, null, 2));
+  
   // Set CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -46,7 +52,46 @@ export const handler = async (event, context) => {
   try {
     // GET all manual entities
     if (event.httpMethod === 'GET' && !id) {
+      console.log('Getting all manual entities');
+      
+      // Check if the table exists first
+      try {
+        const tableCheck = await query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            AND table_name = 'manual_entities'
+          );
+        `);
+        console.log('Table check result:', tableCheck.rows[0]);
+        
+        if (!tableCheck.rows[0].exists) {
+          console.log('Table manual_entities does not exist, creating it');
+          await query(`
+            CREATE TABLE IF NOT EXISTS manual_entities (
+              id TEXT PRIMARY KEY,
+              friendly TEXT NOT NULL,
+              echlon TEXT NOT NULL,
+              destroyed TEXT NOT NULL,
+              x DOUBLE PRECISION NOT NULL,
+              y DOUBLE PRECISION NOT NULL, 
+              z DOUBLE PRECISION DEFAULT 0
+            );
+          `);
+          console.log('Table created successfully');
+        }
+      } catch (tableError) {
+        console.error('Error checking/creating table:', tableError);
+      }
+      
       const result = await query('SELECT * FROM manual_entities');
+      console.log(`Found ${result.rows.length} manual entities`);
+      
+      // Log a sample of the first entity if available
+      if (result.rows.length > 0) {
+        console.log('Sample entity:', JSON.stringify(result.rows[0], null, 2));
+      }
+      
       return {
         statusCode: 200,
         headers,
@@ -59,10 +104,27 @@ export const handler = async (event, context) => {
       const body = JSON.parse(event.body);
       const { id, friendly, echlon, destroyed, x, y, z } = body;
       
+      console.log('Creating manual entity:', JSON.stringify(body, null, 2));
+      
+      // Create the table if it doesn't exist
+      await query(`
+        CREATE TABLE IF NOT EXISTS manual_entities (
+          id TEXT PRIMARY KEY,
+          friendly TEXT NOT NULL,
+          echlon TEXT NOT NULL,
+          destroyed TEXT NOT NULL,
+          x DOUBLE PRECISION NOT NULL,
+          y DOUBLE PRECISION NOT NULL, 
+          z DOUBLE PRECISION DEFAULT 0
+        );
+      `);
+      
       const result = await query(
         'INSERT INTO manual_entities (id, friendly, echlon, destroyed, x, y, z) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
         [id, friendly, echlon, destroyed, x, y, z]
       );
+      
+      console.log('Entity created successfully:', JSON.stringify(result.rows[0], null, 2));
       
       return {
         statusCode: 201,
