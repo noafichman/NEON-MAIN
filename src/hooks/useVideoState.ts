@@ -33,7 +33,7 @@ const useVideoState = (): {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         
-        const data = await response.json();
+        const data = {state: 'playing'};//await response.json();
         
         if (data.state) {
           // Make sure the state is a valid VideoState

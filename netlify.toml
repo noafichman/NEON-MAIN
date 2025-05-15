@@ -14,6 +14,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/manual-entities"
+  to = "/.netlify/functions/manual-entities"
+  status = 200
+
+[[redirects]]
+  from = "/api/manual-entities/*"
+  to = "/.netlify/functions/manual-entities/:splat"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
