@@ -1,25 +1,29 @@
-// Import required modules
-const { Pool } = require('pg');
+import { Pool } from 'pg';
 
-// Create pool connection to PostgreSQL
+// Create a new pool using environment variables
+// Netlify will inject these from your site's environment variables
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   ssl: {
     rejectUnauthorized: false
   }
 });
 
-// Helper function to execute queries
-const query = async (text, params) => {
-  const client = await pool.connect();
+async function query(text, params) {
   try {
-    return await client.query(text, params);
-  } finally {
-    client.release();
+    const result = await pool.query(text, params);
+    return result;
+  } catch (error) {
+    console.error('Database query error:', error);
+    throw error;
   }
-};
+}
 
-exports.handler = async function(event, context) {
+export const handler = async (event, context) => {
   // Set CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
