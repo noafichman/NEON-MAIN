@@ -29,8 +29,12 @@ app.get('/api/military-entities', async (req, res) => {
       }
       
       // Positions 3-4: Symbol Set and Entity
-      sidc += 'GP'; // Ground/Land Equipment
       
+      if (entity.id && entity.id.includes("UAV")) {
+        sidc += 'A'; // Air
+      } else {
+        sidc += 'I'; // Infantry
+      }
       // Position 5: Entity Type
       sidc += 'I'; // Infantry
       

@@ -104,7 +104,7 @@ exports.handler = async function(event, context) {
           };
         } else {
           // Get all shapes
-          const result = await query('SELECT * FROM map_shapes ORDER BY created_at DESC');
+          const result = await query('SELECT * FROM map_shapes');
           console.log(`Found ${result.rows.length} shapes in database`);
           
           return {
