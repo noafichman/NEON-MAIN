@@ -10,12 +10,14 @@ import { useMilitaryEntities } from '../../hooks/useMilitaryEntities';
 import { useMapShapes } from '../../hooks/useMapShapes';
 import { MilitaryEntity } from '../../types/entities';
 import { MapShape, Position } from '../../types/shapes';
-import { Search, Wifi, Bell, Menu, Settings, MessageSquare, Calendar, Clock, Video, Image, FileText, PenTool } from 'lucide-react';
+import { Search, Wifi, Bell, Menu, Settings, MessageSquare, Calendar, Clock, Video, Image, FileText, PenTool, Crosshair } from 'lucide-react';
 import AlertPanel from '../alerts/AlertPanel';
 import LastAlertsPanel from '../alerts/LastAlertsPanel';
 import ShapesMenu from './shapes/ShapesMenu';
 import ShapeForm from './shapes/ShapeForm';
 import ShapeRenderer from './shapes/ShapeRenderer';
+import VideoModal from '../video/VideoModal';
+import SearchBar from '../search/SearchBar';
 
 // Default map settings
 const INITIAL_VIEW_STATE = {
@@ -29,6 +31,15 @@ interface MapContainerProps {
   setIsPanelVisible: (visible: boolean) => void;
 }
 
+// Search result interface to handle both entity and shape types
+interface SearchResult {
+  id: string;
+  name: string;
+  type: 'entity' | 'shape';
+  category?: string;
+  originalObject: MilitaryEntity | MapShape;
+}
+
 const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelVisible }) => {
   const mapRef = useRef<MapRef>(null);
   const { entities, alerts, dismissAlert } = useMilitaryEntities();
@@ -40,6 +51,9 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
   const [shapeMenuPosition, setShapeMenuPosition] = useState({ x: 0, y: 0 });
   const [previewShape, setPreviewShape] = useState<MapShape | null>(null);
   const [editingShape, setEditingShape] = useState<MapShape | null>(null);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const youtubeVideoUrl = "https://youtu.be/eRQ-DOe-68w?t=560";
+  const [mousePosition, setMousePosition] = useState<{ lat: number, lng: number } | null>(null);
   
   // Update time every second
   useEffect(() => {
@@ -67,6 +81,16 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
     showMenu: showEntityContext,
     hideMenu: hideEntityContext
   } = useContextMenu();
+  
+  // Handler for map mouse move
+  const handleMouseMove = useCallback((e: any) => {
+    if (e.lngLat) {
+      setMousePosition({
+        lat: e.lngLat.lat,
+        lng: e.lngLat.lng
+      });
+    }
+  }, []);
   
   // Handler for map click
   const handleMapClick = useCallback((e: any) => {
@@ -119,6 +143,11 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
     e.preventDefault();
   }, []);
 
+  // Clear mouse position when mouse leaves the map
+  const handleMouseOut = useCallback(() => {
+    setMousePosition(null);
+  }, []);
+
   // Handle shapes button click
   const handleShapesButtonClick = (e: React.MouseEvent) => {
     const buttonRect = e.currentTarget.getBoundingClientRect();
@@ -140,7 +169,13 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
     setShapeType(null);
   };
 
-  // Helper to get center point of any shape (copied from ShapeRenderer)
+  // Format coordinates for display
+  const formatCoordinate = (value: number | undefined | null): string => {
+    if (value === undefined || value === null) return '-.----';
+    return value.toFixed(4);
+  };
+
+  // Helper to get center point of any shape
   function getShapeCenter(shape: MapShape): Position {
     switch (shape.type) {
       case 'point':
@@ -174,13 +209,42 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
     }
   }
 
+  // Handle search result selection
+  const handleSearchResultSelect = (result: SearchResult) => {
+    if (result.type === 'entity') {
+      const entity = result.originalObject as MilitaryEntity;
+      setSelectedEntity(entity);
+      
+      mapRef.current?.flyTo({
+        center: [entity.position.longitude, entity.position.latitude],
+        zoom: 20,
+        duration: 1500
+      });
+    } else if (result.type === 'shape') {
+      const shape = result.originalObject as MapShape;
+      const center = getShapeCenter(shape);
+      
+      mapRef.current?.flyTo({
+        center: [center.longitude, center.latitude],
+        zoom: 20,
+        duration: 1500
+      });
+      
+      // If we want to show the shape details, we could set editingShape here
+      // or create a specific shape details panel
+      setEditingShape(shape);
+    }
+  };
+
   return (
     <div className="h-full w-full relative" onContextMenu={handleContextMenu}>
       {/* Status Header */}
       <div className="absolute top-4 right-4 z-50 flex items-center gap-4 px-4 py-2 bg-gray-900/40 backdrop-blur-sm border border-gray-800/30 rounded-lg">
-        <button className="text-gray-400 hover:text-white transition-colors">
-          <Search size={16} />
-        </button>
+        <SearchBar 
+          entities={entities} 
+          shapes={shapes}
+          onSelectResult={handleSearchResultSelect}
+        />
         <button className="text-green-400 hover:text-green-300 transition-colors">
           <Wifi size={16} />
         </button>
@@ -199,6 +263,24 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
             </div>
           )}
         </button>
+      </div>
+
+      {/* Position Display */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-gray-900/40 backdrop-blur-sm border border-gray-800/30 rounded-lg">
+        <div className="flex items-center gap-2 text-sm">
+          <Crosshair size={14} className="text-gray-400" />
+          <div className="font-mono text-gray-300">
+            {mousePosition ? (
+              <>
+                <span>Lat: {formatCoordinate(mousePosition.lat)}</span>
+                <span className="mx-2">|</span>
+                <span>Lng: {formatCoordinate(mousePosition.lng)}</span>
+              </>
+            ) : (
+              <span className="text-gray-500">Move cursor over map</span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Alert Panels */}
@@ -237,7 +319,11 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
           <Clock size={18} />
         </button>
-        <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
+        <button 
+          className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors"
+          onClick={() => setIsVideoModalOpen(true)}
+          title="Watch Video"
+        >
           <Video size={18} />
         </button>
         <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors">
@@ -248,6 +334,13 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         </button>
       </div>
 
+      {/* Video Modal */}
+      <VideoModal 
+        videoUrl={youtubeVideoUrl}
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+      />
+
       <Map
         ref={mapRef}
         mapboxAccessToken="pk.eyJ1IjoiYW10cnRtIiwiYSI6ImNsd2wzeWNlcDFnc2gycXBmaWoweGx5a3oifQ.thuFRVzuZiyk9xuPI173PA"
@@ -255,6 +348,8 @@ const MapContainer: React.FC<MapContainerProps> = ({ isPanelVisible, setIsPanelV
         // mapStyle="mapbox://styles/mapbox/dark-v11"
         mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
         onClick={handleMapClick}
+        onMouseMove={handleMouseMove}
+        onMouseOut={handleMouseOut}
         style={{ width: '100%', height: '100%' }}
       >
         {/* Render map shapes */}

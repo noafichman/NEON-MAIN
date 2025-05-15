@@ -388,6 +388,29 @@ app.put('/api/shapes/:id', async (req, res) => {
   }
 });
 
+// New endpoint for video state
+app.get('/api/video-state', async (req, res) => {
+  try {
+    console.log('Fetching video state');
+    const result = await query('SELECT state FROM video_state ORDER BY id DESC LIMIT 1');
+    
+    if (result.rows.length === 0) {
+      return res.json({ state: 'paused' }); // Default state if no record exists
+    }
+    
+    const videoState = result.rows[0].state;
+    console.log('Current video state:', videoState);
+    
+    res.json({ state: videoState });
+  } catch (error) {
+    console.error('Error fetching video state:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch video state',
+      details: error.message 
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
